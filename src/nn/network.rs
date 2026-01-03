@@ -1,5 +1,5 @@
 use crate::nn::activation::*;
-use ndarray::{Array, Array1, Array2};
+use ndarray::{Array1, Array2, Axis};
 
 pub enum ActivationType {
     Sigmoid,
@@ -32,5 +32,24 @@ impl Layer {
         }
     }
 
-    pub fn backward(&mut self, output_grad: Array1<f32>) {}
+    pub fn backward(&mut self, output_grad: Array1<f32>, learning_rate: f32) {
+        let z = self.last_z.as_ref().unwrap();
+
+        let grad_fn = match self.activation {
+            ActivationType::ReLU => z.mapv(|x| relu_grad(x)),
+            ActivationType::Sigmoid => z.mapv(|x| sigmoid_grad(x)),
+            ActivationType::SoftPlus => z.mapv(|x| softplus_grad(x)),
+            ActivationType::Tanh => z.mapv(|x| tanh_grad(x)),
+        };
+
+        let dz = output_grad * grad_fn;
+
+        let input = self.last_input.as_ref().unwrap();
+        let input_col = input.view().insert_axis(Axis(1));
+        let dz_row = dz.view().insert_axis(Axis(0));
+        let dw = input_col.dot(&dz_row);
+
+        self.weights = &self.weights - &(learning_rate - &dw);
+        self.biases = &self.biases - &(learning_rate - &dz);
+    }
 }
