@@ -31,4 +31,6 @@ impl Layer {
             ActivationType::Tanh => z.mapv(|x| tanh(x)),
         }
     }
+
+    pub fn backward(&mut self, output_grad: Array1<f32>) {}
 }
