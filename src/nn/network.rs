@@ -49,7 +49,7 @@ impl Layer {
         let dz_row = dz.view().insert_axis(Axis(0));
         let dw = input_col.dot(&dz_row);
 
-        self.weights = &self.weights - &(learning_rate - &dw);
-        self.biases = &self.biases - &(learning_rate - &dz);
+        self.weights = &self.weights - &(learning_rate * &dw);
+        self.biases = &self.biases - &(learning_rate * &dz);
     }
 }
