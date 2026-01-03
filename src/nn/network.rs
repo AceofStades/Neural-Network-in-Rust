@@ -32,7 +32,7 @@ impl Layer {
         }
     }
 
-    pub fn backward(&mut self, output_grad: Array1<f32>, learning_rate: f32) {
+    pub fn backward(&mut self, output_grad: Array1<f32>, learning_rate: f32) -> Array1<f32> {
         let z = self.last_z.as_ref().unwrap();
 
         let grad_fn = match self.activation {
@@ -49,7 +49,11 @@ impl Layer {
         let dz_row = dz.view().insert_axis(Axis(0));
         let dw = input_col.dot(&dz_row);
 
+        let da_prev = dz.dot(&self.weights.t());
+
         self.weights = &self.weights - &(learning_rate * &dw);
         self.biases = &self.biases - &(learning_rate * &dz);
+
+        da_prev
     }
 }
