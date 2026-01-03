@@ -1,5 +1,5 @@
 use ndarray::{Array1, arr1, arr2};
-use rust_nn::nn::network::*;
+use rust_nn::nn::layer::*;
 
 fn assert_arrays_approx_equal(a: &Array1<f32>, b: &Array1<f32>) {
     let epsilon = 1e-4;

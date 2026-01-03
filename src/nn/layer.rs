@@ -8,10 +8,6 @@ pub enum ActivationType {
     SoftPlus,
 }
 
-pub struct Network {
-    pub layers: Vec<Layer>,
-}
-
 pub struct Layer {
     pub weights: Array2<f32>,
     pub biases: Array1<f32>,
