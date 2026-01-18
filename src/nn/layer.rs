@@ -13,8 +13,8 @@ pub struct Layer {
     pub biases: Array1<f32>,
     pub activation: ActivationType,
 
-    pub last_input: Option<Array1<f32>>,
-    pub last_z: Option<Array1<f32>>,
+    last_input: Option<Array1<f32>>,
+    last_z: Option<Array1<f32>>,
 }
 
 impl Layer {
