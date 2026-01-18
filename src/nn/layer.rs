@@ -1,5 +1,6 @@
-use crate::nn::activation::*;
+use crate::nn::activation::{self, *};
 use ndarray::{Array1, Array2, Axis};
+use ndarray_rand::{RandomExt, rand_distr::Uniform};
 
 pub enum ActivationType {
     Sigmoid,
@@ -18,6 +19,16 @@ pub struct Layer {
 }
 
 impl Layer {
+    pub fn new(inputs: usize, outputs: usize, activation: ActivationType) -> Self {
+        Self {
+            weights: Array2::random((inputs, outputs), Uniform::new(-0.5, 0.5).unwrap()),
+            biases: Array1::zeros(outputs),
+            activation,
+            last_input: None,
+            last_z: None,
+        }
+    }
+
     pub fn forward(&mut self, input: &Array1<f32>) -> Array1<f32> {
         self.last_input = Some(input.clone());
 
