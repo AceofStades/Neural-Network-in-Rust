@@ -1,4 +1,4 @@
-use crate::nn::activation::{self, *};
+use crate::nn::activation::*;
 use ndarray::{Array1, Array2, Axis};
 use ndarray_rand::{RandomExt, rand_distr::Uniform};
 
