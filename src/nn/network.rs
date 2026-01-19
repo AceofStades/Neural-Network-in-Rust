@@ -2,7 +2,7 @@ use ndarray::Array1;
 
 use crate::nn::layer::Layer;
 
-struct Network {
+pub struct Network {
     layers: Vec<Layer>,
 }
 
