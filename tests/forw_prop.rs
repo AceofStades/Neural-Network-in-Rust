@@ -8,15 +8,16 @@ fn assert_arrays_approx_equal(a: &Array1<f32>, b: &Array1<f32>) {
         panic!("Arrays not equal!\nLeft: {:?}\nRight: {:?}", a, b);
     }
 }
+
 #[test]
 fn forw_prop_relu() {
-    let layer: Layer = Layer {
-        weights: arr2(&[[1.0, 0.0], [0.0, 1.0]]),
-        biases: arr1(&[1.0, -5.0]),
-        activation: ActivationType::ReLU,
-    };
+    let mut layer = Layer::new(2, 2, ActivationType::ReLU);
+
+    layer.weights = arr2(&[[1.0, 0.0], [0.0, 1.0]]);
+    layer.biases = arr1(&[1.0, -5.0]);
 
     let input = arr1(&[1.0, 1.0]);
+
     let result = layer.forward(&input);
     let expected = arr1(&[2.0, 0.0]);
 
@@ -25,13 +26,13 @@ fn forw_prop_relu() {
 
 #[test]
 fn forw_prop_sigmoid() {
-    let layer: Layer = Layer {
-        weights: arr2(&[[100.0]]),
-        biases: arr1(&[0.0]),
-        activation: ActivationType::Sigmoid,
-    };
+    let mut layer = Layer::new(1, 1, ActivationType::Sigmoid);
+
+    layer.weights = arr2(&[[100.0]]);
+    layer.biases = arr1(&[0.0]);
 
     let input = arr1(&[0.0]);
+
     let result = layer.forward(&input);
 
     assert_eq!(result[0], 0.5);
