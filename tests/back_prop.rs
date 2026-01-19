@@ -1,4 +1,4 @@
-use ndarray::{Array1, array};
+use ndarray::array;
 use rust_nn::nn::layer::{self, Layer};
 
 #[test]
