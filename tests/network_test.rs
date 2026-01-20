@@ -37,13 +37,22 @@ fn test_network_learning_xor() {
     let targets = vec![arr1(&[0.0]), arr1(&[1.0]), arr1(&[1.0]), arr1(&[0.0])];
 
     let mut net = Network::new();
-
     net.add(Layer::new(2, 4, ActivationType::Tanh));
-
     net.add(Layer::new(4, 1, ActivationType::Sigmoid));
 
-    for _ in 0..5000 {
-        net.train_one_epoch(&inputs, &targets, 0.5);
+    let learning_rate = 0.2;
+
+    for epoch in 0..10000 {
+        net.train_one_epoch(&inputs, &targets, learning_rate);
+
+        if epoch % 1000 == 0 {
+            let mut total_error = 0.0;
+            for (input, target) in inputs.iter().zip(targets.iter()) {
+                let pred = net.predict(input.clone());
+                total_error += (pred[0] - target[0]).powi(2);
+            }
+            println!("Epoch {}: Total Error = {:.4}", epoch, total_error);
+        }
     }
 
     let p1 = net.predict(inputs[0].clone())[0];
@@ -52,12 +61,12 @@ fn test_network_learning_xor() {
     let p4 = net.predict(inputs[3].clone())[0];
 
     println!(
-        "XOR Results: [0,0]->{:.2}, [0,1]->{:.2}, [1,0]->{:.2}, [1,1]->{:.2}",
+        "Final Results: [0,0]->{:.2}, [0,1]->{:.2}, [1,0]->{:.2}, [1,1]->{:.2}",
         p1, p2, p3, p4
     );
 
-    assert!(p1 < 0.2, "Failed (0,0) case");
-    assert!(p2 > 0.8, "Failed (0,1) case");
-    assert!(p3 > 0.8, "Failed (1,0) case");
-    assert!(p4 < 0.2, "Failed (1,1) case");
+    assert!(p1 < 0.2);
+    assert!(p2 > 0.8);
+    assert!(p3 > 0.8);
+    assert!(p4 < 0.2);
 }
