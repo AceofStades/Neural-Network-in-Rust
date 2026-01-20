@@ -1,65 +1,54 @@
-pub fn mse(y_true: Vec<f32>, y_pred: Vec<f32>) -> f32 {
-    assert_eq!(y_true.len(), y_pred.len());
-    y_true
-        .iter()
-        .zip(y_pred.iter())
-        .map(|(y, y_hat)| (y - y_hat).powi(2))
-        .sum::<f32>()
-        / y_true.len() as f32
+use ndarray::Array1;
+
+#[derive(Debug, Clone)]
+pub enum Cost {
+    MSE,
+    MAE,
+    CCE,
+    BCE,
+    Huber(f32),
 }
 
-pub fn mae(y_true: Vec<f32>, y_pred: Vec<f32>) -> f32 {
-    assert_eq!(y_true.len(), y_pred.len());
-    y_true
-        .iter()
-        .zip(y_pred.iter())
-        .map(|(y, y_hat)| (y - y_hat).abs())
-        .sum::<f32>()
-        / y_true.len() as f32
-}
-
-pub fn mbe(y_true: Vec<f32>, y_pred: Vec<f32>) -> f32 {
-    assert_eq!(y_true.len(), y_pred.len());
-    y_true
-        .iter()
-        .zip(y_pred.iter())
-        .map(|(y, y_hat)| y - y_hat)
-        .sum::<f32>()
-}
-
-pub fn huber(y_true: Vec<f32>, y_pred: Vec<f32>, delta: f32) -> f32 {
-    assert_eq!(y_true.len(), y_pred.len());
-    y_true
-        .iter()
-        .zip(y_pred.iter())
-        .map(|(y, y_hat)| {
-            let alpha: f32 = (y - y_hat).abs();
-
-            if alpha <= delta {
-                1.0 / 2.0 * alpha.powi(2)
-            } else {
-                delta * (alpha - 1.0 / 2.0 * delta)
+impl Cost {
+    pub fn calc(&self, target: &Array1<f32>, prediction: &Array1<f32>) -> f32 {
+        match self {
+            Cost::MSE => {
+                let errors = (target - prediction).mapv(|x| x.powi(2));
+                errors.mean().unwrap_or(0.0)
             }
-        })
-        .sum::<f32>()
-        / y_true.len() as f32
-}
+            Cost::MAE => {
+                let errors = (target - prediction).mapv(|x| x.abs());
+                errors.mean().unwrap_or(0.0)
+            }
+            Cost::CCE => {
+                let epsilon = 1e-9;
+                let log_pred = prediction.mapv(|x| (x + epsilon).ln());
+                -(target * &log_pred).sum()
+            }
+            Cost::BCE => {
+                let epsilon = 1e-9;
+                let p = prediction.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
+                let term1 = target * &p.mapv(|x| x.ln());
+                let term2 = (1.0 - target) * &p.mapv(|x| (1.0 - x).ln());
+                -(term1 + term2).mean().unwrap_or(0.0)
+            }
+            Cost::Huber(delta) => {
+                let errors = (target - prediction).mapv(|x| {
+                    let a = x.abs();
+                    if a <= *delta {
+                        0.5 * a.powi(2)
+                    } else {
+                        delta * (a - 0.5 * delta)
+                    }
+                });
+                errors.mean().unwrap_or(0.0)
+            }
+        }
+    }
 
-pub fn cce(y_true: Vec<f32>, y_pred: Vec<f32>) -> f32 {
-    assert_eq!(y_true.len(), y_pred.len());
-    -y_true
-        .iter()
-        .zip(y_pred.iter())
-        .map(|(y, y_hat)| y * y_hat.ln())
-        .sum::<f32>()
-}
-
-pub fn bce(y_true: Vec<f32>, y_pred: Vec<f32>) -> f32 {
-    assert_eq!(y_true.len(), y_pred.len());
-    -y_true
-        .iter()
-        .zip(y_pred.iter())
-        .map(|(y, y_hat)| y * y_hat.ln() + (1.0 - y) * (1.0 - y_hat).ln())
-        .sum::<f32>()
-        / y_true.len() as f32
+    pub fn prime(&self, target: &Array1<f32>, prediction: &Array1<f32>) -> Array1<f32> {
+        match self {
+            Cost::MSE => {}
+        }
+    }
 }
