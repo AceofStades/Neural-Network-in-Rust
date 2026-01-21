@@ -1,10 +1,11 @@
 use ndarray::{arr1, arr2};
+use rust_nn::nn::cost::Cost;
 use rust_nn::nn::layer::{ActivationType, Layer};
 use rust_nn::nn::network::Network;
 
 #[test]
 fn test_network_wiring_forward_pass() {
-    let mut net = Network::new();
+    let mut net = Network::new(Cost::MSE);
 
     let mut l1 = Layer::new(2, 2, ActivationType::ReLU);
     l1.weights = arr2(&[[1.0, 0.0], [0.0, 1.0]]);
@@ -36,7 +37,7 @@ fn test_network_learning_xor() {
 
     let targets = vec![arr1(&[0.0]), arr1(&[1.0]), arr1(&[1.0]), arr1(&[0.0])];
 
-    let mut net = Network::new();
+    let mut net = Network::new(Cost::MSE);
     net.add(Layer::new(2, 4, ActivationType::Tanh));
     net.add(Layer::new(4, 1, ActivationType::Sigmoid));
 
