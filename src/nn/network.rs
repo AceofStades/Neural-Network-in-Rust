@@ -1,14 +1,19 @@
 use ndarray::Array1;
 
+use crate::nn::cost::Cost;
 use crate::nn::layer::Layer;
 
 pub struct Network {
-    layers: Vec<Layer>,
+    pub layers: Vec<Layer>,
+    pub cost: Cost,
 }
 
 impl Network {
-    pub fn new() -> Self {
-        Self { layers: Vec::new() }
+    pub fn new(cost: Cost) -> Self {
+        Self {
+            layers: Vec::new(),
+            cost,
+        }
     }
 
     pub fn add(&mut self, layer: Layer) {
