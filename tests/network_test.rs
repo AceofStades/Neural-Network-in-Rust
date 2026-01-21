@@ -9,7 +9,7 @@ fn test_network_wiring_forward_pass() {
 
     let mut l1 = Layer::new(2, 2, ActivationType::ReLU);
     l1.weights = arr2(&[[1.0, 0.0], [0.0, 1.0]]);
-    l1.biases = arr1(&[0.0]);
+    l1.biases = arr1(&[0.0, 0.0]);
     net.add(l1);
 
     let mut l2 = Layer::new(2, 1, ActivationType::ReLU);
