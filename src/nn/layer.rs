@@ -7,6 +7,7 @@ pub enum ActivationType {
     ReLU,
     Tanh,
     SoftPlus,
+    Linear,
 }
 
 pub struct Layer {
@@ -40,6 +41,7 @@ impl Layer {
             ActivationType::Sigmoid => z.mapv(|x| sigmoid(x)),
             ActivationType::SoftPlus => z.mapv(|x| softplus(x)),
             ActivationType::Tanh => z.mapv(|x| tanh(x)),
+            ActivationType::Linear => z.mapv(|x| linear(x)),
         }
     }
 
@@ -51,6 +53,7 @@ impl Layer {
             ActivationType::Sigmoid => z.mapv(|x| sigmoid_grad(x)),
             ActivationType::SoftPlus => z.mapv(|x| softplus_grad(x)),
             ActivationType::Tanh => z.mapv(|x| tanh_grad(x)),
+            ActivationType::Linear => z.mapv(|x| linear_grad(x)),
         };
 
         let dz = output_grad * grad_fn;

@@ -35,3 +35,11 @@ pub fn softplus(x: f32) -> f32 {
 pub fn softplus_grad(x: f32) -> f32 {
     sigmoid(x)
 }
+
+pub fn linear(x: f32) -> f32 {
+    x
+}
+
+pub fn linear_grad(_x: f32) -> f32 {
+    1.0
+}

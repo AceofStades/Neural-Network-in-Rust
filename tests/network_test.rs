@@ -71,3 +71,21 @@ fn test_network_learning_xor() {
     assert!(p3 > 0.8);
     assert!(p4 < 0.2);
 }
+
+#[test]
+fn test_network_learning_linear() {
+    let inputs = vec![arr1(&[1.0]), arr1(&[2.0]), arr1(&[3.0]), arr1(&[4.0])];
+    let targets = vec![arr1(&[2.0]), arr1(&[4.0]), arr1(&[6.0]), arr1(&[8.0])];
+
+    let mut net = Network::new(Cost::MSE);
+    net.add(Layer::new(1, 1, ActivationType::Linear));
+
+    for _ in 0..2000 {
+        net.train_one_epoch(&inputs, &targets, 0.01);
+    }
+
+    let result = net.predict(arr1(&[5.0]))[0];
+    println!("Doubler Test: Input 5.0 -> Output {:.3}", result);
+
+    assert!((result - 10.0).abs() < 0.5);
+}
