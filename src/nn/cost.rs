@@ -48,7 +48,27 @@ impl Cost {
 
     pub fn prime(&self, target: &Array1<f32>, prediction: &Array1<f32>) -> Array1<f32> {
         match self {
-            Cost::MSE => {}
+            Cost::MSE => prediction - target,
+            Cost::MAE => (prediction - target).mapv(|x| x.signum()),
+            Cost::CCE => {
+                let epsilon = 1e-9;
+                -target / (prediction + epsilon)
+            }
+            Cost::BCE => {
+                let epsilon = 1e-9;
+                let p = prediction.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
+                (p.clone() - target) / (p.clone() * (1.0 - &p))
+            }
+            Cost::Huber(delta) => {
+                let diff = prediction - target;
+                diff.mapv(|x| {
+                    if x.abs() <= *delta {
+                        x
+                    } else {
+                        delta * x.signum()
+                    }
+                })
+            }
         }
     }
 }
