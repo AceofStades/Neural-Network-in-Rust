@@ -2,9 +2,10 @@
 name = "rust-nn"
 version = "0.1.0"
 edition = "2024"
+authors = ["Rahul Bokade (@AceofStades)"]
 
 [dependencies]
-clap = "4.5.54"
+clap = { version = "4.5.54", features = ["derive"] }
 macroquad = "0.4.14"
 ndarray = "0.17.1"
 ndarray-rand = "0.16.0"
