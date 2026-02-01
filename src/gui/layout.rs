@@ -16,9 +16,22 @@ pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> Net
 
     let (work_w, work_h) = calculate_work_area(screen_w, screen_h);
 
-    let radius = calculate_optimal_radius(work_w, work_h, topology);
+    // 1. Find densest layer
+    let max_nodes = *topology.iter().max().unwrap_or(&1);
 
-    let positions = generate_node_positions(screen_w, screen_h, work_w, topology, radius);
+    // 2. Calculate Vertical Step
+    let vertical_step = if max_nodes > 1 {
+        work_h / (max_nodes as f32)
+    } else {
+        0.0
+    };
+
+    // 3. Generate Positions
+    let positions = generate_node_positions(screen_w, screen_h, work_w, vertical_step, topology);
+
+    // 4. Calculate Radius
+    // UPDATE: We pass 'work_h' here now to enforce scaling
+    let radius = calculate_safe_radius(work_w, work_h, vertical_step, topology, max_nodes);
 
     NetworkLayout {
         node_radius: radius,
@@ -33,36 +46,12 @@ fn calculate_work_area(screen_w: f32, screen_h: f32) -> (f32, f32) {
     )
 }
 
-fn calculate_optimal_radius(work_w: f32, work_h: f32, topology: &[usize]) -> f32 {
-    let max_nodes_in_col = *topology.iter().max().unwrap_or(&1) as f32;
-    let num_layers = topology.len() as f32;
-
-    // Vertical Constraint: Nodes must fit in the height
-    // We multiply by 2.5 to account for diameter (2.0) + gap (0.5)
-    let max_radius_h = work_h / (max_nodes_in_col * 2.5);
-
-    // Horizontal Constraint: Layers must fit in the width
-    let col_spacing = if num_layers > 1.0 {
-        work_w / (num_layers - 1.0)
-    } else {
-        0.0
-    };
-    let max_radius_w = if num_layers > 1.0 {
-        col_spacing * 0.3
-    } else {
-        max_radius_h
-    };
-
-    // Absolute Constraint: Never bigger than 30px, never smaller than 2px
-    max_radius_h.min(max_radius_w).clamp(2.0, 30.0)
-}
-
 fn generate_node_positions(
     screen_w: f32,
     screen_h: f32,
     work_w: f32,
+    vertical_step: f32,
     topology: &[usize],
-    radius: f32,
 ) -> Vec<Vec<Vec2>> {
     let start_x = (screen_w - work_w) / 2.0;
     let center_y = screen_h / 2.0;
@@ -80,15 +69,55 @@ fn generate_node_positions(
         let x = start_x + (col_idx as f32 * col_spacing);
         let mut layer_nodes = Vec::with_capacity(node_count);
 
-        let col_height = (node_count as f32) * (radius * 2.5);
-        let start_y = center_y - (col_height / 2.0) + (radius * 1.25);
+        if node_count == 1 {
+            layer_nodes.push(vec2(x, center_y));
+        } else {
+            let group_height = (node_count as f32 - 1.0) * vertical_step;
+            let start_y = center_y - (group_height / 2.0);
 
-        for row_idx in 0..node_count {
-            let y = start_y + (row_idx as f32 * (radius * 2.5));
-            layer_nodes.push(vec2(x, y));
+            for row_idx in 0..node_count {
+                let y = start_y + (row_idx as f32 * vertical_step);
+                layer_nodes.push(vec2(x, y));
+            }
         }
         positions.push(layer_nodes);
     }
 
     positions
+}
+
+fn calculate_safe_radius(
+    work_w: f32,
+    work_h: f32, // NEW ARGUMENT
+    vertical_step: f32,
+    topology: &[usize],
+    max_nodes: usize,
+) -> f32 {
+    let num_layers = topology.len();
+
+    // 1. Spacing Limit (Avoid overlapping neighbors)
+    let max_radius_spacing = if max_nodes > 1 {
+        vertical_step / 2.5
+    } else {
+        100.0 // Arbitrary large number, will be clamped below
+    };
+
+    // 2. Horizontal Limit (Avoid touching left/right layers)
+    let col_spacing = if num_layers > 1 {
+        work_w / (num_layers as f32 - 1.0)
+    } else {
+        work_w
+    };
+    let max_radius_w = col_spacing * 0.25;
+
+    // 3. Screen Relative Limit (THE FIX)
+    // A node can never be larger than 6% of the screen height.
+    // On 900px height -> 54px max radius (fine)
+    // On 400px height -> 24px max radius (much smaller!)
+    let max_radius_relative = work_h * 0.06;
+
+    max_radius_spacing
+        .min(max_radius_w)
+        .min(max_radius_relative) // Apply the new limit
+        .clamp(5.0, 40.0) // Keep the absolute 40px hard cap for huge screens
 }
