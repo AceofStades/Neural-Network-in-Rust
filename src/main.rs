@@ -5,7 +5,7 @@ use rust_nn::gui::{layout, renderer::Renderer, theme};
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
-    #[arg(short, long, value_delimiter = ' ', num_args = 1.., default_value = "2 4 4 1")]
+    #[arg(short, long, value_delimiter = ' ', num_args = 1.., default_value = "2 4 3 1")]
     topology: Vec<usize>,
 
     #[arg(short = 'w', long, default_value_t = 1440.0)]
