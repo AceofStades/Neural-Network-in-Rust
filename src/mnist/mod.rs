@@ -1,2 +1,1 @@
-pub mod idx;
-pub mod magic;
+pub mod parser;

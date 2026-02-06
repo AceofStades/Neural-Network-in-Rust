@@ -1,4 +1,4 @@
-use rust_nn::mnist::MnistDataset;
+use rust_nn::mnist::parser::MnistDataset;
 
 #[test]
 fn test_mnist_loading() {
