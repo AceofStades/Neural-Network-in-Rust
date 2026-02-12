@@ -14,14 +14,11 @@ impl Renderer {
     pub fn draw_frame(&self, layout: &NetworkLayout) {
         clear_background(BACKGROUND_COLOR);
 
-        // 1. Draw Title
         self.draw_text_centered("Neural Network Simulation", 50.0, 30);
 
-        // 2. Draw Nodes
         for layer in &layout.node_positions {
             for pos in layer {
                 draw_circle(pos.x, pos.y, layout.node_radius, NODE_COLOR);
-                // Optional: Draw a white outline
                 draw_circle_lines(pos.x, pos.y, layout.node_radius, 2.0, WHITE);
             }
         }
