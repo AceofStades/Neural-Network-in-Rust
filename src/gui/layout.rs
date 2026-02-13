@@ -4,6 +4,7 @@ use macroquad::prelude::{Vec2, vec2};
 pub struct NetworkLayout {
     pub node_radius: f32,
     pub node_positions: Vec<Vec<Vec2>>,
+    pub connections: Vec<(Vec2, Vec2)>,
 }
 
 pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> NetworkLayout {
@@ -11,6 +12,7 @@ pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> Net
         return NetworkLayout {
             node_radius: 0.0,
             node_positions: vec![],
+            connections: vec![],
         };
     }
 
@@ -25,12 +27,13 @@ pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> Net
     };
 
     let positions = generate_node_positions(screen_w, screen_h, work_w, vertical_step, topology);
-
     let radius = calculate_safe_radius(work_w, work_h, vertical_step, topology, max_nodes);
+    let connections = generate_connections(&positions);
 
     NetworkLayout {
         node_radius: radius,
         node_positions: positions,
+        connections: connections,
     }
 }
 
@@ -109,4 +112,20 @@ fn calculate_safe_radius(
         .min(max_radius_w)
         .min(max_radius_relative)
         .clamp(5.0, 40.0)
+}
+
+fn generate_connections(node_positions: &[Vec<Vec2>]) -> Vec<(Vec2, Vec2)> {
+    let mut lines = Vec::new();
+
+    for i in 0..node_positions.len() - 1 {
+        let current_layer = &node_positions[i];
+        let next_layer = &node_positions[i + 1];
+
+        for &start_pos in current_layer {
+            for &end_pos in next_layer {
+                lines.push((start_pos, end_pos));
+            }
+        }
+    }
+    lines
 }

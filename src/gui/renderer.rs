@@ -16,6 +16,16 @@ impl Renderer {
 
         self.draw_text_centered("Neural Network Simulation", 50.0, 30);
 
+        for (start, end) in &layout.connections {
+            draw_line(
+                start.x + 5.0,
+                start.y,
+                end.x - 5.0,
+                end.y,
+                2.0,
+                Color::new(0.8, 0.8, 0.8, 0.5),
+            );
+        }
         for layer in &layout.node_positions {
             for pos in layer {
                 draw_circle(pos.x, pos.y, layout.node_radius, NODE_COLOR);
