@@ -38,7 +38,7 @@ impl Network {
     ) {
         for (input, target) in inputs.iter().zip(targets.iter()) {
             let prediction = self.predict(input.clone());
-            let mut gradient = &prediction - target;
+            let mut gradient = self.cost.prime(target, &prediction);
 
             for layer in self.layers.iter_mut().rev() {
                 gradient = layer.backward(gradient, learning_rate);
