@@ -1,11 +1,15 @@
 use clap::Parser;
 use macroquad::prelude::*;
 use rust_nn::gui::{layout, renderer::Renderer, theme};
+use rust_nn::mnist::parser::MnistDataset;
+use rust_nn::nn::cost::Cost;
+use rust_nn::nn::layer::{ActivationType, Layer};
+use rust_nn::nn::network::Network;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
-    #[arg(short, long, value_delimiter = ' ', num_args = 1.., default_value = "784 320 100 10")]
+    #[arg(short = 't', long, value_delimiter = ' ', num_args = 1.., default_value = "784 320 100 10")]
     topology: Vec<usize>,
 
     #[arg(short = 'w', long, default_value_t = 1440.0)]
@@ -18,8 +22,11 @@ struct Args {
 #[macroquad::main("RustNN")]
 async fn main() {
     let args = Args::parse();
-    request_new_screen_size(args.screen_width, args.screen_height);
 
+    let dataset = MnistDataset::load("mnist-dataset");
+    let network = Network::new(Cost::CCE);
+
+    request_new_screen_size(args.screen_width, args.screen_height);
     let font = load_ttf_font(theme::FONT_PATH).await.unwrap();
     let renderer = Renderer::new(font);
 
