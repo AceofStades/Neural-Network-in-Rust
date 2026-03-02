@@ -7,6 +7,7 @@ pub enum Cost {
     CCE,
     BCE,
     Huber(f32),
+    SCCE,
 }
 
 impl Cost {
@@ -43,6 +44,11 @@ impl Cost {
                 });
                 errors.mean().unwrap_or(0.0)
             }
+            Cost::SCCE => {
+                let epsilon = 1e-9;
+                let class_idx = target[0] as usize;
+                -(prediction[class_idx] + epsilon).ln()
+            }
         }
     }
 
@@ -68,6 +74,13 @@ impl Cost {
                         delta * x.signum()
                     }
                 })
+            }
+            Cost::SCCE => {
+                let epsilon = 1e-9;
+                let class_idx = target[0] as usize;
+                let mut grad = Array1::zeros(prediction.len());
+                grad[class_idx] = -1.0 / (prediction[class_idx] + epsilon);
+                grad
             }
         }
     }
