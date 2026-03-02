@@ -1,4 +1,4 @@
-use std::f64::consts;
+use std::{f32::EPSILON, f64::consts};
 
 const E: f32 = consts::E as f32;
 
@@ -26,7 +26,10 @@ pub fn relu_grad(x: f32) -> f32 {
     if x > 0.0 { 1.0 } else { 0.0 }
 }
 
-// pub fn softmax(x: f32) -> f32 {}
+pub fn softmax(input: Vec<f32>) -> Vec<f32> {
+    let deno: f32 = input.iter().map(|x| EPSILON.powf(*x)).sum();
+    input.iter().map(|x| x / deno).collect()
+}
 
 pub fn softplus(x: f32) -> f32 {
     (1.0 + E.powf(x)).log(E)
