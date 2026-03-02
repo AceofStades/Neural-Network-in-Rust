@@ -3,7 +3,6 @@ use macroquad::prelude::*;
 use rust_nn::gui::{layout, renderer::Renderer, theme};
 use rust_nn::mnist::parser::MnistDataset;
 use rust_nn::nn::cost::Cost;
-use rust_nn::nn::layer::{ActivationType, Layer};
 use rust_nn::nn::network::Network;
 
 #[derive(Parser, Debug)]
@@ -23,17 +22,16 @@ struct Args {
 async fn main() {
     let args = Args::parse();
 
-    let dataset = MnistDataset::load("mnist-dataset");
-    let network = Network::new(Cost::CCE);
+    let _dataset = MnistDataset::load("mnist-dataset");
+    let _network = Network::new(Cost::CCE);
+    let _topo_windows = &args.topology.windows(2);
 
     request_new_screen_size(args.screen_width, args.screen_height);
     let font = load_ttf_font(theme::FONT_PATH).await.unwrap();
     let renderer = Renderer::new(font);
 
-    let mut layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
-
     loop {
-        layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
+        let layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
 
         renderer.draw_frame(&layout);
 
