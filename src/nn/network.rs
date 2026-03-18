@@ -6,6 +6,7 @@ use crate::nn::layer::Layer;
 pub struct Network {
     pub layers: Vec<Layer>,
     pub cost: Cost,
+    pub activations: Vec<Array1<f32>>,
 }
 
 impl Network {
@@ -13,6 +14,7 @@ impl Network {
         Self {
             layers: Vec::new(),
             cost,
+            activations: Vec::new(),
         }
     }
 
@@ -21,10 +23,13 @@ impl Network {
     }
 
     pub fn predict(&mut self, input: Array1<f32>) -> Array1<f32> {
-        let mut output = input;
+        let mut output = input.clone();
+        self.activations.clear();
+        self.activations.push(input);
 
         for layer in &mut self.layers {
             output = layer.forward(&output);
+            self.activations.push(output.clone());
         }
 
         output

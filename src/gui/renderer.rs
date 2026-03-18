@@ -1,12 +1,21 @@
 use super::layout::NetworkLayout;
 use super::theme::*;
 use macroquad::prelude::*;
+use ndarray::Array1;
 
 pub struct TrainingStats {
     pub epoch: usize,
     pub loss: f32,
     pub accuracy: f32,
     pub batch_count: usize,
+}
+
+pub struct VisualizationData {
+    pub activations: Vec<Array1<f32>>,
+    pub prediction: Option<usize>,
+    pub target: Option<usize>,
+    pub confidence: f32,
+    pub epoch_progress: f32,
 }
 
 pub struct Renderer {
@@ -18,11 +27,12 @@ impl Renderer {
         Self { font }
     }
 
-    pub fn draw_frame(&self, layout: &NetworkLayout, stats: Option<&TrainingStats>) {
+    pub fn draw_frame(&self, layout: &NetworkLayout, stats: Option<&TrainingStats>, viz: Option<&VisualizationData>) {
         clear_background(BACKGROUND_COLOR);
 
         self.draw_text_centered("Neural Network Simulation", 50.0, 30);
 
+        // Draw connections
         for (start, end) in &layout.connections {
             draw_line(
                 start.x + 5.0,
@@ -33,16 +43,100 @@ impl Renderer {
                 Color::new(0.8, 0.8, 0.8, 0.5),
             );
         }
-        for layer in &layout.node_positions {
-            for pos in layer {
-                draw_circle(pos.x, pos.y, layout.node_radius, NODE_COLOR);
-                draw_circle_lines(pos.x, pos.y, layout.node_radius, 2.0, WHITE);
+
+        // Draw neurons with activation-based coloring
+        if let Some(v) = viz {
+            self.draw_neurons_with_activations(layout, &v.activations);
+        } else {
+            // Static rendering if no visualization data
+            for layer in &layout.node_positions {
+                for pos in layer {
+                    draw_circle(pos.x, pos.y, layout.node_radius, NODE_COLOR);
+                    draw_circle_lines(pos.x, pos.y, layout.node_radius, 2.0, WHITE);
+                }
             }
         }
 
         if let Some(s) = stats {
             self.draw_training_stats(s);
         }
+
+        if let Some(v) = viz {
+            self.draw_prediction_info(v);
+            self.draw_epoch_progress(v);
+        }
+    }
+
+    fn draw_neurons_with_activations(&self, layout: &NetworkLayout, activations: &[Array1<f32>]) {
+        for (layer_idx, layer_positions) in layout.node_positions.iter().enumerate() {
+            if layer_idx < activations.len() {
+                let layer_activations = &activations[layer_idx];
+
+                for (neuron_idx, pos) in layer_positions.iter().enumerate() {
+                    let activation = if neuron_idx < layer_activations.len() {
+                        layer_activations[neuron_idx].max(0.0).min(1.0)
+                    } else {
+                        0.0
+                    };
+
+                    let color = self.activation_to_color(activation);
+                    draw_circle(pos.x, pos.y, layout.node_radius, color);
+                    draw_circle_lines(pos.x, pos.y, layout.node_radius, 2.0, WHITE);
+                }
+            }
+        }
+    }
+
+    fn activation_to_color(&self, activation: f32) -> Color {
+        if activation < 0.25 {
+            Color::new(0.2, 0.2, 0.2, 1.0)
+        } else if activation < 0.5 {
+            Color::new(0.4, 0.4, 0.6, 1.0)
+        } else if activation < 0.75 {
+            Color::new(0.6, 0.8, 0.3, 1.0)
+        } else {
+            Color::new(1.0, 0.8, 0.0, 1.0)
+        }
+    }
+
+    fn draw_prediction_info(&self, viz: &VisualizationData) {
+        let x = screen_width() - 200.0;
+        let y = 80.0;
+
+        if let Some(pred) = viz.prediction {
+            self.draw_text_left(&format!("Prediction: {}", pred), x, y, 24);
+        }
+
+        if let Some(target) = viz.target {
+            self.draw_text_left(&format!("Target: {}", target), x, y + 30.0, 24);
+        }
+
+        self.draw_text_left(
+            &format!("Confidence: {:.1}%", viz.confidence * 100.0),
+            x,
+            y + 60.0,
+            20,
+        );
+    }
+
+    fn draw_epoch_progress(&self, viz: &VisualizationData) {
+        let bar_width = 300.0;
+        let bar_height = 20.0;
+        let x = (screen_width() - bar_width) / 2.0;
+        let y = screen_height() - 50.0;
+
+        draw_rectangle(x, y, bar_width, bar_height, Color::new(0.3, 0.3, 0.3, 1.0));
+        draw_rectangle(
+            x,
+            y,
+            bar_width * viz.epoch_progress.min(1.0),
+            bar_height,
+            Color::new(0.2, 0.8, 0.3, 1.0),
+        );
+        draw_rectangle_lines(x, y, bar_width, bar_height, 2.0, WHITE);
+
+        let progress_text = format!("{:.0}%", viz.epoch_progress * 100.0);
+        self.draw_text_left(&progress_text, x + bar_width + 10.0, y + 5.0, 16);
     }
 
     fn draw_training_stats(&self, stats: &TrainingStats) {

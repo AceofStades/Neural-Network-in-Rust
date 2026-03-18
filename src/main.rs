@@ -1,6 +1,6 @@
 use clap::Parser;
 use macroquad::prelude::*;
-use rust_nn::gui::renderer::{Renderer, TrainingStats};
+use rust_nn::gui::renderer::{Renderer, TrainingStats, VisualizationData};
 use rust_nn::gui::{layout, theme};
 use rust_nn::mnist::parser::MnistDataset;
 use rust_nn::nn::cost::Cost;
@@ -182,13 +182,41 @@ async fn main() {
             batch_count: training_state.batch_index,
         };
 
+        // Create visualization data from network state
+        let epoch_progress = if dataset.train_images.is_empty() {
+            0.0
+        } else {
+            let total_samples = dataset.train_images.len();
+            let current_sample = (training_state.batch_index * args.batch_size).min(total_samples);
+            current_sample as f32 / total_samples as f32
+        };
+
+        let viz = VisualizationData {
+            activations: network.activations.clone(),
+            prediction: network.activations.last().and_then(|out| {
+                out.iter()
+                    .enumerate()
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                    .map(|(i, _)| i)
+            }),
+            target: None,
+            confidence: network
+                .activations
+                .last()
+                .map(|out| out.iter().cloned().fold(f32::NEG_INFINITY, f32::max))
+                .unwrap_or(0.0)
+                .max(0.0)
+                .min(1.0),
+            epoch_progress,
+        };
+
         // Check if training is complete and print summary
         if training_state.epoch >= args.epochs && training_state.batch_index > 0 {
             println!("\n✓ Training complete! Final accuracy: {:.2}%", stats.accuracy * 100.0);
             println!("Network is ready for inference. Visualizer will continue running.");
         }
 
-        renderer.draw_frame(&layout, Some(&stats));
+        renderer.draw_frame(&layout, Some(&stats), Some(&viz));
         next_frame().await;
     }
 }
