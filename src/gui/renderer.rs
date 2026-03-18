@@ -3,6 +3,7 @@ use super::theme::*;
 use macroquad::prelude::*;
 use ndarray::Array1;
 
+#[derive(Clone)]
 pub struct TrainingStats {
     pub epoch: usize,
     pub loss: f32,
@@ -10,12 +11,19 @@ pub struct TrainingStats {
     pub batch_count: usize,
 }
 
+#[derive(Clone)]
 pub struct VisualizationData {
     pub activations: Vec<Array1<f32>>,
     pub prediction: Option<usize>,
     pub target: Option<usize>,
     pub confidence: f32,
     pub epoch_progress: f32,
+}
+
+#[derive(Clone)]
+pub struct TrainingUpdate {
+    pub stats: TrainingStats,
+    pub visualization: VisualizationData,
 }
 
 pub struct Renderer {

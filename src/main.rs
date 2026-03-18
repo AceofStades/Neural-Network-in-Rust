@@ -1,11 +1,13 @@
 use clap::Parser;
 use macroquad::prelude::*;
-use rust_nn::gui::renderer::{Renderer, TrainingStats, VisualizationData};
+use rust_nn::gui::renderer::{Renderer, TrainingStats, VisualizationData, TrainingUpdate};
 use rust_nn::gui::{layout, theme};
 use rust_nn::mnist::parser::MnistDataset;
 use rust_nn::nn::cost::Cost;
 use rust_nn::nn::layer::{Layer, ActivationType};
 use rust_nn::nn::network::Network;
+use std::sync::mpsc;
+use std::thread;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -30,6 +32,7 @@ struct Args {
 }
 
 struct TrainingState {
+    #[allow(dead_code)]
     epoch: usize,
     batch_index: usize,
     total_loss: f32,
@@ -72,19 +75,22 @@ impl TrainingState {
     }
 }
 
-#[macroquad::main("RustNN")]
-async fn main() {
-    let args = Args::parse();
-
-    let dataset = MnistDataset::load("mnist-dataset");
+fn training_thread(
+    tx: mpsc::Sender<TrainingUpdate>,
+    dataset: MnistDataset,
+    topology: Vec<usize>,
+    learning_rate: f32,
+    batch_size: usize,
+    epochs: usize,
+) {
     let mut network = Network::new(Cost::CCE);
 
     // Build network from topology
-    for i in 0..(args.topology.len() - 1) {
-        let input_size = args.topology[i];
-        let output_size = args.topology[i + 1];
+    for i in 0..(topology.len() - 1) {
+        let input_size = topology[i];
+        let output_size = topology[i + 1];
 
-        let activation = if i == args.topology.len() - 2 {
+        let activation = if i == topology.len() - 2 {
             ActivationType::Sigmoid
         } else {
             ActivationType::Tanh
@@ -93,41 +99,37 @@ async fn main() {
         network.add(Layer::new(input_size, output_size, activation));
     }
 
-    request_new_screen_size(args.screen_width, args.screen_height);
-    let font = load_ttf_font(theme::FONT_PATH).await.unwrap();
-    let renderer = Renderer::new(font);
-
     println!(
-        "✓ Network initialized: {} layers",
+        "✓ [Training Thread] Network initialized: {} layers",
         network.layers.len()
     );
     println!(
-        "📚 Training config: {} epochs, batch_size={}, learning_rate={}",
-        args.epochs, args.batch_size, args.learning_rate
+        "📚 [Training Thread] Config: {} epochs, batch_size={}, learning_rate={}",
+        epochs, batch_size, learning_rate
     );
-    println!("Starting training...\n");
+    println!("[Training Thread] Starting training...\n");
 
     let mut training_state = TrainingState::new();
+    let total_train_samples = dataset.train_images.len();
 
-    loop {
-        let layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
+    for epoch in 0..epochs {
+        training_state.reset_epoch();
 
-        // Process one batch per frame for smooth animation
-        if training_state.epoch < args.epochs && training_state.batch_index * args.batch_size < dataset.train_images.len() {
-            let batch_start = training_state.batch_index * args.batch_size;
-            let batch_end = (batch_start + args.batch_size).min(dataset.train_images.len());
+        for batch_idx in 0..((total_train_samples + batch_size - 1) / batch_size) {
+            let batch_start = batch_idx * batch_size;
+            let batch_end = (batch_start + batch_size).min(total_train_samples);
 
             for idx in batch_start..batch_end {
                 let prediction = network.predict(dataset.train_images[idx].clone());
                 let target = &dataset.train_labels[idx];
 
-                // Calculate loss (simplified - just use first output as loss)
+                // Calculate loss
                 let loss: f32 = (prediction.iter().zip(target.iter()))
                     .map(|(p, t)| (p - t).powi(2))
                     .sum();
                 training_state.total_loss += loss;
 
-                // Check if prediction is correct (argmax match)
+                // Check if prediction is correct
                 let pred_idx = prediction
                     .iter()
                     .enumerate()
@@ -151,72 +153,123 @@ async fn main() {
                 network.train_one_epoch(
                     &vec![dataset.train_images[idx].clone()],
                     &vec![dataset.train_labels[idx].clone()],
-                    args.learning_rate,
+                    learning_rate,
                 );
             }
 
             training_state.batch_index += 1;
 
-            // Check if epoch is complete
-            if batch_end >= dataset.train_images.len() {
-                let epoch_num = training_state.epoch + 1;
-                let avg_loss = training_state.get_loss();
-                let accuracy = training_state.get_accuracy();
-                println!(
-                    "Epoch {}/{} | Loss: {:.4} | Accuracy: {:.2}%",
-                    epoch_num,
-                    args.epochs,
-                    avg_loss,
-                    accuracy * 100.0
-                );
+            // Send update after each batch
+            let epoch_progress =
+                (batch_start as f32 + (batch_end - batch_start) as f32) / total_train_samples as f32;
 
-                training_state.epoch += 1;
-                training_state.reset_epoch();
+            let update = TrainingUpdate {
+                stats: TrainingStats {
+                    epoch: epoch + 1,
+                    loss: training_state.get_loss(),
+                    accuracy: training_state.get_accuracy(),
+                    batch_count: training_state.batch_index,
+                },
+                visualization: VisualizationData {
+                    activations: network.activations.clone(),
+                    prediction: network.activations.last().and_then(|out| {
+                        out.iter()
+                            .enumerate()
+                            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                            .map(|(i, _)| i)
+                    }),
+                    target: None,
+                    confidence: network
+                        .activations
+                        .last()
+                        .map(|out| out.iter().cloned().fold(f32::NEG_INFINITY, f32::max))
+                        .unwrap_or(0.0)
+                        .max(0.0)
+                        .min(1.0),
+                    epoch_progress,
+                },
+            };
+
+            let _ = tx.send(update);
+        }
+
+        println!(
+            "Epoch {}/{} | Loss: {:.4} | Accuracy: {:.2}%",
+            epoch + 1,
+            epochs,
+            training_state.get_loss(),
+            training_state.get_accuracy() * 100.0
+        );
+    }
+
+    println!(
+        "\n✓ [Training Thread] Training complete! Final accuracy: {:.2}%",
+        training_state.get_accuracy() * 100.0
+    );
+}
+
+#[macroquad::main("RustNN")]
+async fn main() {
+    let args = Args::parse();
+
+    let dataset = MnistDataset::load("mnist-dataset");
+
+    request_new_screen_size(args.screen_width, args.screen_height);
+    let font = load_ttf_font(theme::FONT_PATH).await.unwrap();
+    let renderer = Renderer::new(font);
+
+    // Create channel for training thread to send updates
+    let (tx, rx) = mpsc::channel();
+
+    // Spawn training thread
+    let topology = args.topology.clone();
+    let dataset_clone = MnistDataset {
+        train_images: dataset.train_images.clone(),
+        train_labels: dataset.train_labels.clone(),
+        test_images: dataset.test_images.clone(),
+        test_labels: dataset.test_labels.clone(),
+    };
+
+    let learning_rate = args.learning_rate;
+    let batch_size = args.batch_size;
+    let epochs = args.epochs;
+
+    let training_thread_handle = thread::spawn(move || {
+        training_thread(tx, dataset_clone, topology, learning_rate, batch_size, epochs);
+    });
+
+    println!("\n🎨 [Main Thread] Rendering started. Training running in background...\n");
+
+    let mut last_update: Option<TrainingUpdate> = None;
+    let mut training_complete = false;
+
+    loop {
+        let layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
+
+        // Receive latest update from training thread (non-blocking)
+        if let Ok(update) = rx.try_recv() {
+            last_update = Some(update.clone());
+            if update.stats.epoch >= args.epochs {
+                training_complete = true;
             }
         }
 
-        let stats = TrainingStats {
-            epoch: training_state.epoch,
-            loss: training_state.get_loss(),
-            accuracy: training_state.get_accuracy(),
-            batch_count: training_state.batch_index,
-        };
-
-        // Create visualization data from network state
-        let epoch_progress = if dataset.train_images.is_empty() {
-            0.0
+        // Render with latest update
+        if let Some(update) = &last_update {
+            renderer.draw_frame(&layout, Some(&update.stats), Some(&update.visualization));
         } else {
-            let total_samples = dataset.train_images.len();
-            let current_sample = (training_state.batch_index * args.batch_size).min(total_samples);
-            current_sample as f32 / total_samples as f32
-        };
-
-        let viz = VisualizationData {
-            activations: network.activations.clone(),
-            prediction: network.activations.last().and_then(|out| {
-                out.iter()
-                    .enumerate()
-                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-                    .map(|(i, _)| i)
-            }),
-            target: None,
-            confidence: network
-                .activations
-                .last()
-                .map(|out| out.iter().cloned().fold(f32::NEG_INFINITY, f32::max))
-                .unwrap_or(0.0)
-                .max(0.0)
-                .min(1.0),
-            epoch_progress,
-        };
-
-        // Check if training is complete and print summary
-        if training_state.epoch >= args.epochs && training_state.batch_index > 0 {
-            println!("\n✓ Training complete! Final accuracy: {:.2}%", stats.accuracy * 100.0);
-            println!("Network is ready for inference. Visualizer will continue running.");
+            renderer.draw_frame(&layout, None, None);
         }
 
-        renderer.draw_frame(&layout, Some(&stats), Some(&viz));
         next_frame().await;
+
+        // Optional: Exit after training completes
+        if training_complete && is_key_pressed(KeyCode::Escape) {
+            println!("\n[Main Thread] Escape pressed. Exiting...");
+            break;
+        }
     }
+
+    // Wait for training thread to finish
+    let _ = training_thread_handle.join();
 }

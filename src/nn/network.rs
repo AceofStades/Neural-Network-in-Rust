@@ -3,6 +3,7 @@ use ndarray::Array1;
 use crate::nn::cost::Cost;
 use crate::nn::layer::Layer;
 
+#[derive(Clone)]
 pub struct Network {
     pub layers: Vec<Layer>,
     pub cost: Cost,

@@ -2,6 +2,7 @@ use crate::nn::activation::*;
 use ndarray::{Array1, Array2, Axis};
 use ndarray_rand::{RandomExt, rand_distr::Uniform};
 
+#[derive(Clone, Copy)]
 pub enum ActivationType {
     Sigmoid,
     ReLU,
@@ -10,6 +11,7 @@ pub enum ActivationType {
     Linear,
 }
 
+#[derive(Clone)]
 pub struct Layer {
     pub weights: Array2<f32>,
     pub biases: Array1<f32>,
