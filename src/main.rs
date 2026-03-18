@@ -97,6 +97,16 @@ async fn main() {
     let font = load_ttf_font(theme::FONT_PATH).await.unwrap();
     let renderer = Renderer::new(font);
 
+    println!(
+        "✓ Network initialized: {} layers",
+        network.layers.len()
+    );
+    println!(
+        "📚 Training config: {} epochs, batch_size={}, learning_rate={}",
+        args.epochs, args.batch_size, args.learning_rate
+    );
+    println!("Starting training...\n");
+
     let mut training_state = TrainingState::new();
 
     loop {
@@ -149,6 +159,17 @@ async fn main() {
 
             // Check if epoch is complete
             if batch_end >= dataset.train_images.len() {
+                let epoch_num = training_state.epoch + 1;
+                let avg_loss = training_state.get_loss();
+                let accuracy = training_state.get_accuracy();
+                println!(
+                    "Epoch {}/{} | Loss: {:.4} | Accuracy: {:.2}%",
+                    epoch_num,
+                    args.epochs,
+                    avg_loss,
+                    accuracy * 100.0
+                );
+
                 training_state.epoch += 1;
                 training_state.reset_epoch();
             }
@@ -160,6 +181,12 @@ async fn main() {
             accuracy: training_state.get_accuracy(),
             batch_count: training_state.batch_index,
         };
+
+        // Check if training is complete and print summary
+        if training_state.epoch >= args.epochs && training_state.batch_index > 0 {
+            println!("\n✓ Training complete! Final accuracy: {:.2}%", stats.accuracy * 100.0);
+            println!("Network is ready for inference. Visualizer will continue running.");
+        }
 
         renderer.draw_frame(&layout, Some(&stats));
         next_frame().await;

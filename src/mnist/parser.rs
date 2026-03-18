@@ -13,12 +13,20 @@ impl MnistDataset {
     pub fn load(base_path: &str) -> Self {
         println!("Loading MNIST dataset from {}...", base_path);
 
-        Self {
+        let dataset = Self {
             train_images: parse_images(&format!("{}/train-images.idx3-ubyte", base_path)),
             train_labels: parse_labels(&format!("{}/train-labels.idx1-ubyte", base_path)),
             test_images: parse_images(&format!("{}/t10k-images.idx3-ubyte", base_path)),
             test_labels: parse_labels(&format!("{}/t10k-labels.idx1-ubyte", base_path)),
-        }
+        };
+
+        println!(
+            "✓ MNIST dataset loaded: {} training samples, {} test samples",
+            dataset.train_images.len(),
+            dataset.test_images.len()
+        );
+
+        dataset
     }
 }
 
