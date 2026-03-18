@@ -77,19 +77,29 @@ impl Renderer {
 
     fn draw_neurons_with_activations(&self, layout: &NetworkLayout, activations: &[Array1<f32>]) {
         for (layer_idx, layer_positions) in layout.node_positions.iter().enumerate() {
-            if layer_idx < activations.len() {
+            if layer_idx < activations.len() && layer_idx < layout.node_display_info.len() {
                 let layer_activations = &activations[layer_idx];
+                let layer_info = &layout.node_display_info[layer_idx];
 
-                for (neuron_idx, pos) in layer_positions.iter().enumerate() {
-                    let activation = if neuron_idx < layer_activations.len() {
-                        layer_activations[neuron_idx].max(0.0).min(1.0)
-                    } else {
-                        0.0
-                    };
+                for (pos_idx, pos) in layer_positions.iter().enumerate() {
+                    if let Some(info) = layer_info.get(pos_idx) {
+                        if info.is_real {
+                            let activation = if info.index < layer_activations.len() {
+                                layer_activations[info.index].max(0.0).min(1.0)
+                            } else {
+                                0.0
+                            };
 
-                    let color = self.activation_to_color(activation);
-                    draw_circle(pos.x, pos.y, layout.node_radius, color);
-                    draw_circle_lines(pos.x, pos.y, layout.node_radius, 2.0, WHITE);
+                            let color = self.activation_to_color(activation);
+                            draw_circle(pos.x, pos.y, layout.node_radius, color);
+                            draw_circle_lines(pos.x, pos.y, layout.node_radius, 2.0, WHITE);
+                        } else {
+                            let dot_size = layout.node_radius * 0.3;
+                            draw_circle(pos.x - dot_size - 2.0, pos.y, dot_size, Color::new(0.6, 0.6, 0.6, 0.7));
+                            draw_circle(pos.x, pos.y, dot_size, Color::new(0.6, 0.6, 0.6, 0.7));
+                            draw_circle(pos.x + dot_size + 2.0, pos.y, dot_size, Color::new(0.6, 0.6, 0.6, 0.7));
+                        }
+                    }
                 }
             }
         }

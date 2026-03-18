@@ -32,8 +32,6 @@ struct Args {
 }
 
 struct TrainingState {
-    #[allow(dead_code)]
-    epoch: usize,
     batch_index: usize,
     total_loss: f32,
     total_correct: usize,
@@ -43,7 +41,6 @@ struct TrainingState {
 impl TrainingState {
     fn new() -> Self {
         Self {
-            epoch: 0,
             batch_index: 0,
             total_loss: 0.0,
             total_correct: 0,
@@ -85,7 +82,6 @@ fn training_thread(
 ) {
     let mut network = Network::new(Cost::CCE);
 
-    // Build network from topology
     for i in 0..(topology.len() - 1) {
         let input_size = topology[i];
         let output_size = topology[i + 1];
@@ -100,11 +96,11 @@ fn training_thread(
     }
 
     println!(
-        "✓ [Training Thread] Network initialized: {} layers",
+        "[Training Thread] Network initialized: {} layers",
         network.layers.len()
     );
     println!(
-        "📚 [Training Thread] Config: {} epochs, batch_size={}, learning_rate={}",
+        "[Training Thread] Config: {} epochs, batch_size={}, learning_rate={}",
         epochs, batch_size, learning_rate
     );
     println!("[Training Thread] Starting training...\n");
@@ -123,13 +119,11 @@ fn training_thread(
                 let prediction = network.predict(dataset.train_images[idx].clone());
                 let target = &dataset.train_labels[idx];
 
-                // Calculate loss
                 let loss: f32 = (prediction.iter().zip(target.iter()))
                     .map(|(p, t)| (p - t).powi(2))
                     .sum();
                 training_state.total_loss += loss;
 
-                // Check if prediction is correct
                 let pred_idx = prediction
                     .iter()
                     .enumerate()
@@ -149,7 +143,6 @@ fn training_thread(
 
                 training_state.total_samples += 1;
 
-                // Train on this sample
                 network.train_one_epoch(
                     &vec![dataset.train_images[idx].clone()],
                     &vec![dataset.train_labels[idx].clone()],
@@ -159,7 +152,6 @@ fn training_thread(
 
             training_state.batch_index += 1;
 
-            // Send update after each batch
             let epoch_progress =
                 (batch_start as f32 + (batch_end - batch_start) as f32) / total_train_samples as f32;
 
@@ -203,7 +195,7 @@ fn training_thread(
     }
 
     println!(
-        "\n✓ [Training Thread] Training complete! Final accuracy: {:.2}%",
+        "\n[Training Thread] Training complete! Final accuracy: {:.2}%",
         training_state.get_accuracy() * 100.0
     );
 }
@@ -218,10 +210,8 @@ async fn main() {
     let font = load_ttf_font(theme::FONT_PATH).await.unwrap();
     let renderer = Renderer::new(font);
 
-    // Create channel for training thread to send updates
     let (tx, rx) = mpsc::channel();
 
-    // Spawn training thread
     let topology = args.topology.clone();
     let dataset_clone = MnistDataset {
         train_images: dataset.train_images.clone(),
@@ -238,7 +228,7 @@ async fn main() {
         training_thread(tx, dataset_clone, topology, learning_rate, batch_size, epochs);
     });
 
-    println!("\n🎨 [Main Thread] Rendering started. Training running in background...\n");
+    println!("\n[Main Thread] Rendering started. Training running in background...\n");
 
     let mut last_update: Option<TrainingUpdate> = None;
     let mut training_complete = false;
@@ -246,7 +236,6 @@ async fn main() {
     loop {
         let layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
 
-        // Receive latest update from training thread (non-blocking)
         if let Ok(update) = rx.try_recv() {
             last_update = Some(update.clone());
             if update.stats.epoch >= args.epochs {
@@ -254,7 +243,6 @@ async fn main() {
             }
         }
 
-        // Render with latest update
         if let Some(update) = &last_update {
             renderer.draw_frame(&layout, Some(&update.stats), Some(&update.visualization));
         } else {
@@ -263,13 +251,11 @@ async fn main() {
 
         next_frame().await;
 
-        // Optional: Exit after training completes
         if training_complete && is_key_pressed(KeyCode::Escape) {
             println!("\n[Main Thread] Escape pressed. Exiting...");
             break;
         }
     }
 
-    // Wait for training thread to finish
     let _ = training_thread_handle.join();
 }

@@ -21,7 +21,7 @@ impl MnistDataset {
         };
 
         println!(
-            "✓ MNIST dataset loaded: {} training samples, {} test samples",
+            "MNIST dataset loaded: {} training samples, {} test samples",
             dataset.train_images.len(),
             dataset.test_images.len()
         );

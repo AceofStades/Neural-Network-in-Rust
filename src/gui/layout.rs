@@ -1,10 +1,19 @@
 use super::theme::SCREEN_PADDING_RATIO;
 use macroquad::prelude::{Vec2, vec2};
 
+const MAX_VISIBLE_NODES: usize = 16;
+
 pub struct NetworkLayout {
     pub node_radius: f32,
     pub node_positions: Vec<Vec<Vec2>>,
+    pub node_display_info: Vec<Vec<DisplayNodeInfo>>,
     pub connections: Vec<(Vec2, Vec2)>,
+    pub layer_sizes: Vec<usize>,
+}
+
+pub struct DisplayNodeInfo {
+    pub is_real: bool,
+    pub index: usize,
 }
 
 pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> NetworkLayout {
@@ -12,28 +21,33 @@ pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> Net
         return NetworkLayout {
             node_radius: 0.0,
             node_positions: vec![],
+            node_display_info: vec![],
             connections: vec![],
+            layer_sizes: vec![],
         };
     }
 
     let (work_w, work_h) = calculate_work_area(screen_w, screen_h);
 
     let max_nodes = *topology.iter().max().unwrap_or(&1);
+    let visible_nodes = max_nodes.min(MAX_VISIBLE_NODES);
 
-    let vertical_step = if max_nodes > 1 {
-        work_h / (max_nodes as f32)
+    let vertical_step = if visible_nodes > 1 {
+        work_h / (visible_nodes as f32 + 1.0)
     } else {
         0.0
     };
 
-    let positions = generate_node_positions(screen_w, screen_h, work_w, vertical_step, topology);
+    let (positions, display_info) = generate_node_positions_with_ellipsis(screen_w, screen_h, work_w, vertical_step, topology);
     let radius = calculate_safe_radius(work_w, work_h, vertical_step, topology, max_nodes);
     let connections = generate_connections(&positions);
 
     NetworkLayout {
         node_radius: radius,
         node_positions: positions,
-        connections: connections,
+        node_display_info: display_info,
+        connections,
+        layer_sizes: topology.to_vec(),
     }
 }
 
@@ -44,13 +58,13 @@ fn calculate_work_area(screen_w: f32, screen_h: f32) -> (f32, f32) {
     )
 }
 
-fn generate_node_positions(
+fn generate_node_positions_with_ellipsis(
     screen_w: f32,
     screen_h: f32,
     work_w: f32,
     vertical_step: f32,
     topology: &[usize],
-) -> Vec<Vec<Vec2>> {
+) -> (Vec<Vec<Vec2>>, Vec<Vec<DisplayNodeInfo>>) {
     let start_x = (screen_w - work_w) / 2.0;
     let center_y = screen_h / 2.0;
     let num_layers = topology.len();
@@ -62,26 +76,70 @@ fn generate_node_positions(
     };
 
     let mut positions = Vec::with_capacity(num_layers);
+    let mut display_info = Vec::with_capacity(num_layers);
 
     for (col_idx, &node_count) in topology.iter().enumerate() {
         let x = start_x + (col_idx as f32 * col_spacing);
-        let mut layer_nodes = Vec::with_capacity(node_count);
+        let mut layer_nodes = Vec::new();
+        let mut layer_info = Vec::new();
 
-        if node_count == 1 {
-            layer_nodes.push(vec2(x, center_y));
+        if node_count <= MAX_VISIBLE_NODES {
+            if node_count == 1 {
+                layer_nodes.push(vec2(x, center_y));
+                layer_info.push(DisplayNodeInfo {
+                    is_real: true,
+                    index: 0,
+                });
+            } else {
+                let group_height = (node_count as f32 - 1.0) * vertical_step;
+                let start_y = center_y - (group_height / 2.0);
+
+                for row_idx in 0..node_count {
+                    let y = start_y + (row_idx as f32 * vertical_step);
+                    layer_nodes.push(vec2(x, y));
+                    layer_info.push(DisplayNodeInfo {
+                        is_real: true,
+                        index: row_idx,
+                    });
+                }
+            }
         } else {
-            let group_height = (node_count as f32 - 1.0) * vertical_step;
+            let half = MAX_VISIBLE_NODES / 2;
+            let group_height = (MAX_VISIBLE_NODES as f32) * vertical_step;
             let start_y = center_y - (group_height / 2.0);
 
-            for row_idx in 0..node_count {
-                let y = start_y + (row_idx as f32 * vertical_step);
+            for i in 0..half {
+                let y = start_y + (i as f32 * vertical_step);
                 layer_nodes.push(vec2(x, y));
+                layer_info.push(DisplayNodeInfo {
+                    is_real: true,
+                    index: i,
+                });
+            }
+
+            let ellipsis_y = start_y + (half as f32 * vertical_step);
+            layer_nodes.push(vec2(x, ellipsis_y));
+            layer_info.push(DisplayNodeInfo {
+                is_real: false,
+                index: 0,
+            });
+
+            for i in 0..half {
+                let actual_idx = node_count - half + i;
+                let y = start_y + ((half + 1 + i) as f32 * vertical_step);
+                layer_nodes.push(vec2(x, y));
+                layer_info.push(DisplayNodeInfo {
+                    is_real: true,
+                    index: actual_idx,
+                });
             }
         }
+
         positions.push(layer_nodes);
+        display_info.push(layer_info);
     }
 
-    positions
+    (positions, display_info)
 }
 
 fn calculate_safe_radius(
@@ -94,7 +152,7 @@ fn calculate_safe_radius(
     let num_layers = topology.len();
 
     let max_radius_spacing = if max_nodes > 1 {
-        vertical_step / 2.5
+        vertical_step / 3.0
     } else {
         100.0
     };
