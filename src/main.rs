@@ -226,10 +226,16 @@ fn training_thread(
             let batch_start = batch_idx * batch_size;
             let batch_end = (batch_start + batch_size).min(total_train_samples);
 
-            for idx in batch_start..batch_end {
-                let prediction = network.predict(dataset.train_images[idx].clone());
-                let target = &dataset.train_labels[idx];
+            let mut batch_inputs = Vec::with_capacity(batch_size);
+            let mut batch_targets = Vec::with_capacity(batch_size);
 
+            for idx in batch_start..batch_end {
+                let input = dataset.train_images[idx].clone();
+                let target = dataset.train_labels[idx].clone();
+
+                // Calculate stats for visualization/reporting (before training on this batch)
+                let prediction = network.predict(input.clone());
+                
                 let loss: f32 = (prediction.iter().zip(target.iter()))
                     .map(|(p, t)| (p - t).powi(2))
                     .sum();
@@ -253,13 +259,13 @@ fn training_thread(
                 }
 
                 training_state.total_samples += 1;
-
-                network.train_one_epoch(
-                    &vec![dataset.train_images[idx].clone()],
-                    &vec![dataset.train_labels[idx].clone()],
-                    learning_rate,
-                );
+                
+                batch_inputs.push(input);
+                batch_targets.push(target);
             }
+
+            // Perform batch training (accumulate gradients and update weights once)
+            network.train_batch(&batch_inputs, &batch_targets, learning_rate);
 
             training_state.batch_index += 1;
 

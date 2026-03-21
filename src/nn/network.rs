@@ -53,10 +53,10 @@ impl Network {
         output
     }
 
-    pub fn train_one_epoch(
+    pub fn train_batch(
         &mut self,
-        inputs: &Vec<Array1<f32>>,
-        targets: &Vec<Array1<f32>>,
+        inputs: &[Array1<f32>],
+        targets: &[Array1<f32>],
         learning_rate: f32,
     ) {
         for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -66,6 +66,11 @@ impl Network {
             for layer in self.layers.iter_mut().rev() {
                 gradient = layer.backward(gradient, learning_rate);
             }
+        }
+        
+        // Apply accumulated gradients after processing the batch
+        for layer in &mut self.layers {
+            layer.apply_gradients(learning_rate);
         }
     }
 }
