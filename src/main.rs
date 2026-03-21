@@ -1,10 +1,10 @@
 use clap::Parser;
 use macroquad::prelude::*;
-use rust_nn::gui::renderer::{Renderer, TrainingStats, VisualizationData, TrainingUpdate};
+use rust_nn::gui::renderer::{Renderer, TrainingStats, TrainingUpdate, VisualizationData};
 use rust_nn::gui::{layout, theme};
 use rust_nn::mnist::parser::MnistDataset;
 use rust_nn::nn::cost::Cost;
-use rust_nn::nn::layer::{Layer, ActivationType};
+use rust_nn::nn::layer::{ActivationType, Layer};
 use rust_nn::nn::network::Network;
 use std::sync::mpsc;
 use std::thread;
@@ -29,6 +29,9 @@ struct Args {
 
     #[arg(short = 'E', long, default_value_t = 5)]
     epochs: usize,
+
+    #[arg(short = 'p', long)]
+    path: Option<String>,
 }
 
 struct TrainingState {
@@ -79,6 +82,7 @@ fn training_thread(
     learning_rate: f32,
     batch_size: usize,
     epochs: usize,
+    model_path: Option<String>,
 ) {
     let mut network = Network::new(Cost::CCE);
 
@@ -93,6 +97,23 @@ fn training_thread(
         };
 
         network.add(Layer::new(input_size, output_size, activation));
+    }
+
+    if let Some(path) = &model_path {
+        if std::path::Path::new(path).exists() {
+            println!("[Training Thread] Loading model from {}", path);
+            match Network::load(path) {
+                Ok(loaded_net) => {
+                    network = loaded_net;
+                }
+                Err(e) => {
+                    println!(
+                        "[Training Thread] Failed to load model: {}. Using new network.",
+                        e
+                    );
+                }
+            }
+        }
     }
 
     println!(
@@ -152,8 +173,8 @@ fn training_thread(
 
             training_state.batch_index += 1;
 
-            let epoch_progress =
-                (batch_start as f32 + (batch_end - batch_start) as f32) / total_train_samples as f32;
+            let epoch_progress = (batch_start as f32 + (batch_end - batch_start) as f32)
+                / total_train_samples as f32;
 
             let update = TrainingUpdate {
                 stats: TrainingStats {
@@ -198,6 +219,13 @@ fn training_thread(
         "\n[Training Thread] Training complete! Final accuracy: {:.2}%",
         training_state.get_accuracy() * 100.0
     );
+
+    if let Some(path) = &model_path {
+        println!("[Training Thread] Saving model to {}", path);
+        if let Err(e) = network.save(path) {
+            println!("[Training Thread] Failed to save model: {}", e);
+        }
+    }
 }
 
 #[macroquad::main("RustNN")]
@@ -223,9 +251,18 @@ async fn main() {
     let learning_rate = args.learning_rate;
     let batch_size = args.batch_size;
     let epochs = args.epochs;
+    let model_path = args.path.clone();
 
     let training_thread_handle = thread::spawn(move || {
-        training_thread(tx, dataset_clone, topology, learning_rate, batch_size, epochs);
+        training_thread(
+            tx,
+            dataset_clone,
+            topology,
+            learning_rate,
+            batch_size,
+            epochs,
+            model_path,
+        );
     });
 
     println!("\n[Main Thread] Rendering started. Training running in background...\n");

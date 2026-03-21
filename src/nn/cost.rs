@@ -1,6 +1,7 @@
 use ndarray::Array1;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Cost {
     MSE,
     MAE,

@@ -1,8 +1,9 @@
 use crate::nn::activation::*;
 use ndarray::{Array1, Array2, Axis};
 use ndarray_rand::{RandomExt, rand_distr::Uniform};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum ActivationType {
     Sigmoid,
     ReLU,
@@ -11,13 +12,15 @@ pub enum ActivationType {
     Linear,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Layer {
     pub weights: Array2<f32>,
     pub biases: Array1<f32>,
     pub activation: ActivationType,
 
+    #[serde(skip)]
     last_input: Option<Array1<f32>>,
+    #[serde(skip)]
     last_z: Option<Array1<f32>>,
 }
 

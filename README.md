@@ -133,7 +133,7 @@ cargo test
 * [x] Add multithreading to separate Training from Rendering.
 * [x] Implement dataset loading (MNIST).
 * [ ] Add interactive UI controls (Buttons/Sliders).
-* [ ] Save/Load trained models to disk.
+* [x] Save/Load trained models to disk.
 
 ## License
 

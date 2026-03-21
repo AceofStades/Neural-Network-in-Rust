@@ -1,16 +1,33 @@
 use ndarray::Array1;
+use serde::{Deserialize, Serialize};
+use std::fs::File;
 
 use crate::nn::cost::Cost;
 use crate::nn::layer::Layer;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Network {
     pub layers: Vec<Layer>,
     pub cost: Cost,
+    #[serde(skip)]
     pub activations: Vec<Array1<f32>>,
 }
 
 impl Network {
+    pub fn save(&self, path: &str) -> std::io::Result<()> {
+        let file = File::create(path)?;
+        serde_json::to_writer(file, self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        Ok(())
+    }
+
+    pub fn load(path: &str) -> std::io::Result<Self> {
+        let file = File::open(path)?;
+        let network: Network = serde_json::from_reader(file)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        Ok(network)
+    }
+
     pub fn new(cost: Cost) -> Self {
         Self {
             layers: Vec::new(),

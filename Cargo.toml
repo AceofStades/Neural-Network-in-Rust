@@ -7,5 +7,7 @@ authors = ["Rahul Bokade (@AceofStades)"]
 [dependencies]
 clap = { version = "4.5.54", features = ["derive"] }
 macroquad = "0.4.14"
-ndarray = "0.17.1"
+ndarray = { version = "0.17.1", features = ["serde"] }
 ndarray-rand = "0.16.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
