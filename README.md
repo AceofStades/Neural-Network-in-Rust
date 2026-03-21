@@ -130,8 +130,8 @@ cargo test
 
 ## Roadmap
 
-* [ ] Add multithreading to separate Training from Rendering.
-* [ ] Implement dataset loading (MNIST).
+* [x] Add multithreading to separate Training from Rendering.
+* [x] Implement dataset loading (MNIST).
 * [ ] Add interactive UI controls (Buttons/Sliders).
 * [ ] Save/Load trained models to disk.
 
