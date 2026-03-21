@@ -44,9 +44,10 @@ impl Renderer {
         layout: &NetworkLayout,
         _stats: Option<&TrainingStats>,
         viz: Option<&VisualizationData>,
-        title_y: f32,
+        header_height: f32,
     ) {
-        self.draw_text_centered("Neural Network Simulation", title_y + 30.0, 30);
+        // Draw title centered in the header area
+        self.draw_text_centered("Neural Network Simulation", header_height / 2.0 + 10.0, 30);
 
         // Draw connections
         for (start, end) in &layout.connections {
