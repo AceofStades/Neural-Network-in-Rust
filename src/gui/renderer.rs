@@ -65,6 +65,12 @@ impl Renderer {
             }
         }
 
+        // Draw layer node counts
+        self.draw_layer_counts(layout);
+
+        // Draw legend
+        self.draw_legend();
+
         if let Some(s) = stats {
             self.draw_training_stats(s);
         }
@@ -154,7 +160,10 @@ impl Renderer {
         draw_rectangle_lines(x, y, bar_width, bar_height, 2.0, WHITE);
 
         let progress_text = format!("{:.0}%", viz.epoch_progress * 100.0);
-        self.draw_text_left(&progress_text, x + bar_width + 10.0, y + 5.0, 16);
+        let text_dims = measure_text(&progress_text, Some(&self.font), 16, 1.0);
+        // Center the text vertically with the bar
+        let text_y = y + (bar_height + text_dims.height) / 2.0 - 2.0;
+        self.draw_text_left(&progress_text, x + bar_width + 10.0, text_y, 16);
     }
 
     fn draw_training_stats(&self, stats: &TrainingStats) {
@@ -201,5 +210,67 @@ impl Renderer {
                 ..Default::default()
             },
         );
+    }
+
+    fn draw_layer_counts(&self, layout: &NetworkLayout) {
+        let top_y = 80.0;
+        
+        for (layer_idx, layer_positions) in layout.node_positions.iter().enumerate() {
+            if let Some(first_pos) = layer_positions.first() {
+                let node_count = layout.layer_sizes[layer_idx];
+                let count_text = format!("{}", node_count);
+                let text_dims = measure_text(&count_text, Some(&self.font), 18, 1.0);
+                let text_x = first_pos.x - (text_dims.width / 2.0);
+                
+                self.draw_text_left(&count_text, text_x, top_y, 18);
+            }
+        }
+    }
+
+    fn draw_legend(&self) {
+        let legend_x = screen_width() - 180.0;
+        let legend_y = screen_height() - 180.0;
+        let legend_width = 160.0;
+        let legend_height = 140.0;
+        let padding = 10.0;
+
+        // Background box
+        draw_rectangle(
+            legend_x,
+            legend_y,
+            legend_width,
+            legend_height,
+            Color::new(0.1, 0.1, 0.1, 0.8),
+        );
+        draw_rectangle_lines(legend_x, legend_y, legend_width, legend_height, 2.0, WHITE);
+
+        // Title
+        self.draw_text_left("Legend", legend_x + padding, legend_y + padding + 15.0, 18);
+
+        // Color samples and labels
+        let item_y_start = legend_y + padding + 35.0;
+        let item_spacing = 25.0;
+        let circle_radius = 8.0;
+        let circle_x = legend_x + padding + circle_radius;
+
+        // Low activation
+        draw_circle(circle_x, item_y_start, circle_radius, Color::new(0.2, 0.2, 0.2, 1.0));
+        draw_circle_lines(circle_x, item_y_start, circle_radius, 1.5, WHITE);
+        self.draw_text_left("Low (< 0.25)", circle_x + circle_radius + 8.0, item_y_start + 5.0, 14);
+
+        // Medium-low activation
+        draw_circle(circle_x, item_y_start + item_spacing, circle_radius, Color::new(0.4, 0.4, 0.6, 1.0));
+        draw_circle_lines(circle_x, item_y_start + item_spacing, circle_radius, 1.5, WHITE);
+        self.draw_text_left("Medium (< 0.5)", circle_x + circle_radius + 8.0, item_y_start + item_spacing + 5.0, 14);
+
+        // Medium-high activation
+        draw_circle(circle_x, item_y_start + item_spacing * 2.0, circle_radius, Color::new(0.6, 0.8, 0.3, 1.0));
+        draw_circle_lines(circle_x, item_y_start + item_spacing * 2.0, circle_radius, 1.5, WHITE);
+        self.draw_text_left("High (< 0.75)", circle_x + circle_radius + 8.0, item_y_start + item_spacing * 2.0 + 5.0, 14);
+
+        // High activation
+        draw_circle(circle_x, item_y_start + item_spacing * 3.0, circle_radius, Color::new(1.0, 0.8, 0.0, 1.0));
+        draw_circle_lines(circle_x, item_y_start + item_spacing * 3.0, circle_radius, 1.5, WHITE);
+        self.draw_text_left("Very High (≥ 0.75)", circle_x + circle_radius + 8.0, item_y_start + item_spacing * 3.0 + 5.0, 14);
     }
 }
