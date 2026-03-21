@@ -124,7 +124,7 @@ impl Renderer {
     }
 
     fn draw_prediction_info(&self, viz: &VisualizationData) {
-        let x = screen_width() - 200.0;
+        let x = screen_width() - 250.0;
         let y = 80.0;
 
         if let Some(pred) = viz.prediction {
@@ -228,9 +228,9 @@ impl Renderer {
     }
 
     fn draw_legend(&self) {
-        let legend_x = screen_width() - 180.0;
+        let legend_x = screen_width() - 220.0;
         let legend_y = screen_height() - 180.0;
-        let legend_width = 160.0;
+        let legend_width = 210.0;
         let legend_height = 140.0;
         let padding = 10.0;
 
