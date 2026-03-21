@@ -152,6 +152,23 @@ impl Slider {
             },
         );
 
+        // Value display (aligned to the right of the label)
+        let value_text = format!("{:.3}", self.value);
+        let value_dims = measure_text(&value_text, Some(font), 16, 1.0);
+        let value_x = self.x + self.width - value_dims.width;
+        
+        draw_text_ex(
+            &value_text,
+            value_x,
+            label_y,
+            TextParams {
+                font: Some(font),
+                font_size: 16,
+                color: WHITE,
+                ..Default::default()
+            },
+        );
+
         // Track
         draw_rectangle(
             self.x,
@@ -172,21 +189,6 @@ impl Slider {
 
         draw_circle(handle_x, self.y + self.height / 2.0, 10.0, handle_color);
         draw_circle_lines(handle_x, self.y + self.height / 2.0, 10.0, 2.0, WHITE);
-
-        // Value display
-        let value_text = format!("{:.3}", self.value);
-        let value_x = self.x + self.width + 10.0;
-        draw_text_ex(
-            &value_text,
-            value_x,
-            self.y + self.height / 2.0 + 5.0,
-            TextParams {
-                font: Some(font),
-                font_size: 16,
-                color: WHITE,
-                ..Default::default()
-            },
-        );
     }
 }
 
