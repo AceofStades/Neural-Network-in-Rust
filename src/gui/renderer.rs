@@ -176,16 +176,15 @@ impl Renderer {
     }
 
     fn draw_layer_counts(&self, layout: &NetworkLayout) {
-        let top_y = layout.network_area.y + 20.0;
-        
         for (layer_idx, layer_positions) in layout.node_positions.iter().enumerate() {
             if let Some(first_pos) = layer_positions.first() {
                 let node_count = layout.layer_sizes[layer_idx];
                 let count_text = format!("{}", node_count);
                 let text_dims = measure_text(&count_text, Some(&self.font), 18, 1.0);
                 let text_x = first_pos.x - (text_dims.width / 2.0);
+                let text_y = first_pos.y - layout.node_radius - 15.0;
                 
-                self.draw_text_left(&count_text, text_x, top_y, 18);
+                self.draw_text_left(&count_text, text_x, text_y, 18);
             }
         }
     }
