@@ -266,6 +266,16 @@ fn training_thread(
             let epoch_progress = (batch_start as f32 + (batch_end - batch_start) as f32)
                 / total_train_samples as f32;
 
+            // Use the last sample in the batch for visualization
+            let viz_idx = batch_end - 1;
+            let viz_target = &dataset.train_labels[viz_idx];
+            let viz_target_idx = viz_target
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+
             let update = TrainingUpdate {
                 stats: TrainingStats {
                     epoch: epoch + 1,
@@ -281,7 +291,7 @@ fn training_thread(
                             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
                             .map(|(i, _)| i)
                     }),
-                    target: None,
+                    target: Some(viz_target_idx),
                     confidence: network
                         .activations
                         .last()
@@ -290,6 +300,7 @@ fn training_thread(
                         .max(0.0)
                         .min(1.0),
                     epoch_progress,
+                    input_image: Some(dataset.train_images[viz_idx].to_vec()),
                 },
             };
 

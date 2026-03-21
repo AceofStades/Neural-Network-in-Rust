@@ -18,6 +18,7 @@ pub struct VisualizationData {
     pub target: Option<usize>,
     pub confidence: f32,
     pub epoch_progress: f32,
+    pub input_image: Option<Vec<f32>>,
 }
 
 #[derive(Clone)]
@@ -127,7 +128,37 @@ impl Renderer {
 
     fn draw_prediction_info(&self, viz: &VisualizationData) {
         let x = screen_width() - 250.0;
-        let y = 80.0;
+        let mut y = 80.0;
+
+        // Draw input image if available
+        if let Some(image_data) = &viz.input_image {
+            let img_size = 140.0; // Display size
+            let img_x = x;
+            let img_y = y;
+            
+            // Draw border
+            draw_rectangle(img_x - 2.0, img_y - 2.0, img_size + 4.0, img_size + 4.0, WHITE);
+            draw_rectangle(img_x, img_y, img_size, img_size, BLACK);
+
+            // Draw pixels
+            let pixel_size = img_size / 28.0;
+            for (i, &pixel_val) in image_data.iter().enumerate() {
+                if pixel_val > 0.0 {
+                    let row = (i / 28) as f32;
+                    let col = (i % 28) as f32;
+                    let color_val = pixel_val.max(0.0).min(1.0);
+                    draw_rectangle(
+                        img_x + col * pixel_size,
+                        img_y + row * pixel_size,
+                        pixel_size,
+                        pixel_size,
+                        Color::new(color_val, color_val, color_val, 1.0),
+                    );
+                }
+            }
+            
+            y += img_size + 20.0;
+        }
 
         if let Some(pred) = viz.prediction {
             self.draw_text_left(&format!("Prediction: {}", pred), x, y, 24);
