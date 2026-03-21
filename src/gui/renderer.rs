@@ -127,13 +127,27 @@ impl Renderer {
     }
 
     fn draw_prediction_info(&self, viz: &VisualizationData) {
-        let x = screen_width() - 250.0;
+        let start_x = screen_width() - 250.0;
         let mut y = 80.0;
+        
+        // Calculate max text width to center image relative to text block
+        let mut max_width: f32 = 150.0; // Default min width
+        if let Some(pred) = viz.prediction {
+            let dims = measure_text(&format!("Prediction: {}", pred), Some(&self.font), 24, 1.0);
+            max_width = max_width.max(dims.width);
+        }
+        if let Some(target) = viz.target {
+            let dims = measure_text(&format!("Target: {}", target), Some(&self.font), 24, 1.0);
+            max_width = max_width.max(dims.width);
+        }
+        let dims = measure_text(&format!("Confidence: {:.1}%", viz.confidence * 100.0), Some(&self.font), 20, 1.0);
+        max_width = max_width.max(dims.width);
 
         // Draw input image if available
         if let Some(image_data) = &viz.input_image {
             let img_size = 140.0; // Display size
-            let img_x = x;
+            // Center image relative to the text block
+            let img_x = start_x + (max_width - img_size) / 2.0;
             let img_y = y;
             
             // Draw border
@@ -157,20 +171,20 @@ impl Renderer {
                 }
             }
             
-            y += img_size + 20.0;
+            y += img_size + 30.0; // Increased spacing to match text spacing
         }
 
         if let Some(pred) = viz.prediction {
-            self.draw_text_left(&format!("Prediction: {}", pred), x, y, 24);
+            self.draw_text_left(&format!("Prediction: {}", pred), start_x, y, 24);
         }
 
         if let Some(target) = viz.target {
-            self.draw_text_left(&format!("Target: {}", target), x, y + 30.0, 24);
+            self.draw_text_left(&format!("Target: {}", target), start_x, y + 30.0, 24);
         }
 
         self.draw_text_left(
             &format!("Confidence: {:.1}%", viz.confidence * 100.0),
-            x,
+            start_x,
             y + 60.0,
             20,
         );
