@@ -1,5 +1,6 @@
 use clap::Parser;
 use macroquad::prelude::*;
+use rust_nn::gui::controls::{ControlMessage, ControlPanel};
 use rust_nn::gui::renderer::{Renderer, TrainingStats, TrainingUpdate, VisualizationData};
 use rust_nn::gui::{layout, theme};
 use rust_nn::mnist::parser::MnistDataset;
@@ -8,6 +9,7 @@ use rust_nn::nn::layer::{ActivationType, Layer};
 use rust_nn::nn::network::Network;
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -76,15 +78,19 @@ impl TrainingState {
 }
 
 fn training_thread(
-    tx: mpsc::Sender<TrainingUpdate>,
+    update_tx: mpsc::Sender<TrainingUpdate>,
+    control_rx: mpsc::Receiver<ControlMessage>,
     dataset: MnistDataset,
     topology: Vec<usize>,
-    learning_rate: f32,
+    initial_learning_rate: f32,
     batch_size: usize,
     epochs: usize,
     model_path: Option<String>,
 ) {
     let mut network = Network::new(Cost::CCE);
+    let mut learning_rate = initial_learning_rate;
+    let mut paused = false;
+    let mut speed_delay_ms = 0.0;
 
     for i in 0..(topology.len() - 1) {
         let input_size = topology[i];
@@ -133,6 +139,87 @@ fn training_thread(
         training_state.reset_epoch();
 
         for batch_idx in 0..((total_train_samples + batch_size - 1) / batch_size) {
+            // Check for control messages
+            while let Ok(msg) = control_rx.try_recv() {
+                match msg {
+                    ControlMessage::Pause => {
+                        paused = true;
+                        println!("[Training Thread] Paused");
+                    }
+                    ControlMessage::Resume => {
+                        paused = false;
+                        println!("[Training Thread] Resumed");
+                    }
+                    ControlMessage::Reset => {
+                        println!("[Training Thread] Resetting network...");
+                        network = Network::new(Cost::CCE);
+                        for i in 0..(topology.len() - 1) {
+                            let input_size = topology[i];
+                            let output_size = topology[i + 1];
+                            let activation = if i == topology.len() - 2 {
+                                ActivationType::Sigmoid
+                            } else {
+                                ActivationType::Tanh
+                            };
+                            network.add(Layer::new(input_size, output_size, activation));
+                        }
+                        training_state.reset_epoch();
+                        println!("[Training Thread] Network reset complete");
+                    }
+                    ControlMessage::SetLearningRate(new_lr) => {
+                        learning_rate = new_lr;
+                        println!("[Training Thread] Learning rate updated to {:.4}", learning_rate);
+                    }
+                    ControlMessage::SetSpeed(delay) => {
+                        speed_delay_ms = delay;
+                    }
+                }
+            }
+
+            // Wait while paused
+            while paused {
+                thread::sleep(Duration::from_millis(100));
+                // Keep checking for resume/reset messages
+                if let Ok(msg) = control_rx.try_recv() {
+                    match msg {
+                        ControlMessage::Resume => {
+                            paused = false;
+                            println!("[Training Thread] Resumed");
+                        }
+                        ControlMessage::Reset => {
+                            println!("[Training Thread] Resetting network...");
+                            network = Network::new(Cost::CCE);
+                            for i in 0..(topology.len() - 1) {
+                                let input_size = topology[i];
+                                let output_size = topology[i + 1];
+                                let activation = if i == topology.len() - 2 {
+                                    ActivationType::Sigmoid
+                                } else {
+                                    ActivationType::Tanh
+                                };
+                                network.add(Layer::new(input_size, output_size, activation));
+                            }
+                            training_state.reset_epoch();
+                            paused = false;
+                            println!("[Training Thread] Network reset complete");
+                            break;
+                        }
+                        ControlMessage::SetLearningRate(new_lr) => {
+                            learning_rate = new_lr;
+                        }
+                        ControlMessage::SetSpeed(delay) => {
+                            speed_delay_ms = delay;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            // Speed control delay
+            if speed_delay_ms > 0.0 {
+                thread::sleep(Duration::from_millis(speed_delay_ms as u64));
+            }
+
             let batch_start = batch_idx * batch_size;
             let batch_end = (batch_start + batch_size).min(total_train_samples);
 
@@ -203,7 +290,7 @@ fn training_thread(
                 },
             };
 
-            let _ = tx.send(update);
+            let _ = update_tx.send(update);
         }
 
         println!(
@@ -238,7 +325,8 @@ async fn main() {
     let font = load_ttf_font(theme::FONT_PATH).await.unwrap();
     let renderer = Renderer::new(font);
 
-    let (tx, rx) = mpsc::channel();
+    let (update_tx, update_rx) = mpsc::channel();
+    let (control_tx, control_rx) = mpsc::channel();
 
     let topology = args.topology.clone();
     let dataset_clone = MnistDataset {
@@ -255,7 +343,8 @@ async fn main() {
 
     let training_thread_handle = thread::spawn(move || {
         training_thread(
-            tx,
+            update_tx,
+            control_rx,
             dataset_clone,
             topology,
             learning_rate,
@@ -267,13 +356,20 @@ async fn main() {
 
     println!("\n[Main Thread] Rendering started. Training running in background...\n");
 
+    let mut control_panel = ControlPanel::new(args.screen_width, args.screen_height, args.learning_rate);
     let mut last_update: Option<TrainingUpdate> = None;
     let mut training_complete = false;
 
     loop {
         let layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
 
-        if let Ok(update) = rx.try_recv() {
+        // Handle control panel updates
+        let control_messages = control_panel.update();
+        for msg in control_messages {
+            let _ = control_tx.send(msg);
+        }
+
+        if let Ok(update) = update_rx.try_recv() {
             last_update = Some(update.clone());
             if update.stats.epoch >= args.epochs {
                 training_complete = true;
@@ -285,6 +381,9 @@ async fn main() {
         } else {
             renderer.draw_frame(&layout, None, None);
         }
+
+        // Draw control panel on top
+        control_panel.draw(&renderer.font());
 
         next_frame().await;
 

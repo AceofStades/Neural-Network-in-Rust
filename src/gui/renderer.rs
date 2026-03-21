@@ -35,6 +35,10 @@ impl Renderer {
         Self { font }
     }
 
+    pub fn font(&self) -> &Font {
+        &self.font
+    }
+
     pub fn draw_frame(&self, layout: &NetworkLayout, stats: Option<&TrainingStats>, viz: Option<&VisualizationData>) {
         clear_background(BACKGROUND_COLOR);
 
