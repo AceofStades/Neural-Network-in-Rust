@@ -39,10 +39,14 @@ impl Renderer {
         &self.font
     }
 
-    pub fn draw_frame(&self, layout: &NetworkLayout, stats: Option<&TrainingStats>, viz: Option<&VisualizationData>) {
-        clear_background(BACKGROUND_COLOR);
-
-        self.draw_text_centered("Neural Network Simulation", 50.0, 30);
+    pub fn draw_frame(
+        &self,
+        layout: &NetworkLayout,
+        _stats: Option<&TrainingStats>,
+        viz: Option<&VisualizationData>,
+        title_y: f32,
+    ) {
+        self.draw_text_centered("Neural Network Simulation", title_y + 30.0, 30);
 
         // Draw connections
         for (start, end) in &layout.connections {
@@ -72,16 +76,9 @@ impl Renderer {
         // Draw layer node counts
         self.draw_layer_counts(layout);
 
-        // Draw legend
-        self.draw_legend();
-
-        if let Some(s) = stats {
-            self.draw_training_stats(s);
-        }
-
+        // Draw prediction info (top right)
         if let Some(v) = viz {
             self.draw_prediction_info(v);
-            self.draw_epoch_progress(v);
         }
     }
 
@@ -147,44 +144,6 @@ impl Renderer {
         );
     }
 
-    fn draw_epoch_progress(&self, viz: &VisualizationData) {
-        let bar_width = 300.0;
-        let bar_height = 20.0;
-        let x = (screen_width() - bar_width) / 2.0;
-        let y = screen_height() - 50.0;
-
-        draw_rectangle(x, y, bar_width, bar_height, Color::new(0.3, 0.3, 0.3, 1.0));
-        draw_rectangle(
-            x,
-            y,
-            bar_width * viz.epoch_progress.min(1.0),
-            bar_height,
-            Color::new(0.2, 0.8, 0.3, 1.0),
-        );
-        draw_rectangle_lines(x, y, bar_width, bar_height, 2.0, WHITE);
-
-        let progress_text = format!("{:.0}%", viz.epoch_progress * 100.0);
-        let text_dims = measure_text(&progress_text, Some(&self.font), 16, 1.0);
-        // Center the text vertically with the bar
-        let text_y = y + (bar_height + text_dims.height) / 2.0 - 2.0;
-        self.draw_text_left(&progress_text, x + bar_width + 10.0, text_y, 16);
-    }
-
-    fn draw_training_stats(&self, stats: &TrainingStats) {
-        let padding = 20.0;
-        let y_start = screen_height() - 120.0;
-
-        let epoch_text = format!("Epoch: {}", stats.epoch);
-        let loss_text = format!("Loss: {:.4}", stats.loss);
-        let acc_text = format!("Accuracy: {:.2}%", stats.accuracy * 100.0);
-        let batch_text = format!("Batches: {}", stats.batch_count);
-
-        self.draw_text_left(&epoch_text, padding, y_start, 20);
-        self.draw_text_left(&loss_text, padding, y_start + 25.0, 20);
-        self.draw_text_left(&acc_text, padding, y_start + 50.0, 20);
-        self.draw_text_left(&batch_text, padding, y_start + 75.0, 20);
-    }
-
     fn draw_text_centered(&self, text: &str, y: f32, size: u16) {
         let dims = measure_text(text, Some(&self.font), size, 1.0);
         let x = (screen_width() - dims.width) / 2.0;
@@ -217,7 +176,7 @@ impl Renderer {
     }
 
     fn draw_layer_counts(&self, layout: &NetworkLayout) {
-        let top_y = 80.0;
+        let top_y = layout.network_area.y + 20.0;
         
         for (layer_idx, layer_positions) in layout.node_positions.iter().enumerate() {
             if let Some(first_pos) = layer_positions.first() {
@@ -229,52 +188,5 @@ impl Renderer {
                 self.draw_text_left(&count_text, text_x, top_y, 18);
             }
         }
-    }
-
-    fn draw_legend(&self) {
-        let legend_x = screen_width() - 220.0;
-        let legend_y = screen_height() - 180.0;
-        let legend_width = 210.0;
-        let legend_height = 140.0;
-        let padding = 10.0;
-
-        // Background box
-        draw_rectangle(
-            legend_x,
-            legend_y,
-            legend_width,
-            legend_height,
-            Color::new(0.1, 0.1, 0.1, 0.8),
-        );
-        draw_rectangle_lines(legend_x, legend_y, legend_width, legend_height, 2.0, WHITE);
-
-        // Title
-        self.draw_text_left("Legend", legend_x + padding, legend_y + padding + 15.0, 18);
-
-        // Color samples and labels
-        let item_y_start = legend_y + padding + 35.0;
-        let item_spacing = 25.0;
-        let circle_radius = 8.0;
-        let circle_x = legend_x + padding + circle_radius;
-
-        // Low activation
-        draw_circle(circle_x, item_y_start, circle_radius, Color::new(0.2, 0.2, 0.2, 1.0));
-        draw_circle_lines(circle_x, item_y_start, circle_radius, 1.5, WHITE);
-        self.draw_text_left("Low (< 0.25)", circle_x + circle_radius + 8.0, item_y_start + 5.0, 14);
-
-        // Medium-low activation
-        draw_circle(circle_x, item_y_start + item_spacing, circle_radius, Color::new(0.4, 0.4, 0.6, 1.0));
-        draw_circle_lines(circle_x, item_y_start + item_spacing, circle_radius, 1.5, WHITE);
-        self.draw_text_left("Medium (< 0.5)", circle_x + circle_radius + 8.0, item_y_start + item_spacing + 5.0, 14);
-
-        // Medium-high activation
-        draw_circle(circle_x, item_y_start + item_spacing * 2.0, circle_radius, Color::new(0.6, 0.8, 0.3, 1.0));
-        draw_circle_lines(circle_x, item_y_start + item_spacing * 2.0, circle_radius, 1.5, WHITE);
-        self.draw_text_left("High (< 0.75)", circle_x + circle_radius + 8.0, item_y_start + item_spacing * 2.0 + 5.0, 14);
-
-        // High activation
-        draw_circle(circle_x, item_y_start + item_spacing * 3.0, circle_radius, Color::new(1.0, 0.8, 0.0, 1.0));
-        draw_circle_lines(circle_x, item_y_start + item_spacing * 3.0, circle_radius, 1.5, WHITE);
-        self.draw_text_left("Very High (≥ 0.75)", circle_x + circle_radius + 8.0, item_y_start + item_spacing * 3.0 + 5.0, 14);
     }
 }

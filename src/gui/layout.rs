@@ -1,5 +1,6 @@
+use super::layout_manager::NetworkArea;
 use super::theme::SCREEN_PADDING_RATIO;
-use macroquad::prelude::{Vec2, vec2};
+use macroquad::prelude::{vec2, Vec2};
 
 const MAX_VISIBLE_NODES: usize = 16;
 
@@ -9,6 +10,7 @@ pub struct NetworkLayout {
     pub node_display_info: Vec<Vec<DisplayNodeInfo>>,
     pub connections: Vec<(Vec2, Vec2)>,
     pub layer_sizes: Vec<usize>,
+    pub network_area: NetworkArea,
 }
 
 pub struct DisplayNodeInfo {
@@ -16,7 +18,7 @@ pub struct DisplayNodeInfo {
     pub index: usize,
 }
 
-pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> NetworkLayout {
+pub fn calculate_layout(network_area: NetworkArea, topology: &[usize]) -> NetworkLayout {
     if topology.is_empty() {
         return NetworkLayout {
             node_radius: 0.0,
@@ -24,10 +26,13 @@ pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> Net
             node_display_info: vec![],
             connections: vec![],
             layer_sizes: vec![],
+            network_area,
         };
     }
 
-    let (work_w, work_h) = calculate_work_area(screen_w, screen_h);
+    // Use the provided network area instead of calculating from screen
+    let work_w = network_area.width * SCREEN_PADDING_RATIO;
+    let work_h = network_area.height * SCREEN_PADDING_RATIO;
 
     let max_nodes = *topology.iter().max().unwrap_or(&1);
     let visible_nodes = max_nodes.min(MAX_VISIBLE_NODES);
@@ -38,7 +43,8 @@ pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> Net
         0.0
     };
 
-    let (positions, display_info) = generate_node_positions_with_ellipsis(screen_w, screen_h, work_w, vertical_step, topology);
+    let (positions, display_info) =
+        generate_node_positions_with_ellipsis(&network_area, work_w, vertical_step, topology);
     let radius = calculate_safe_radius(work_w, work_h, vertical_step, topology, max_nodes);
     let connections = generate_connections(&positions);
 
@@ -48,25 +54,18 @@ pub fn calculate_layout(screen_w: f32, screen_h: f32, topology: &[usize]) -> Net
         node_display_info: display_info,
         connections,
         layer_sizes: topology.to_vec(),
+        network_area,
     }
 }
 
-fn calculate_work_area(screen_w: f32, screen_h: f32) -> (f32, f32) {
-    (
-        screen_w * SCREEN_PADDING_RATIO,
-        screen_h * SCREEN_PADDING_RATIO,
-    )
-}
-
 fn generate_node_positions_with_ellipsis(
-    screen_w: f32,
-    screen_h: f32,
+    network_area: &NetworkArea,
     work_w: f32,
     vertical_step: f32,
     topology: &[usize],
 ) -> (Vec<Vec<Vec2>>, Vec<Vec<DisplayNodeInfo>>) {
-    let start_x = (screen_w - work_w) / 2.0;
-    let center_y = screen_h / 2.0;
+    let start_x = network_area.x + (network_area.width - work_w) / 2.0;
+    let center_y = network_area.y + network_area.height / 2.0;
     let num_layers = topology.len();
 
     let col_spacing = if num_layers > 1 {

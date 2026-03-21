@@ -1,6 +1,9 @@
 use clap::Parser;
 use macroquad::prelude::*;
-use rust_nn::gui::controls::{ControlMessage, ControlPanel};
+use rust_nn::gui::bottom_panel::BottomPanel;
+use rust_nn::gui::controls::ControlMessage;
+use rust_nn::gui::layout_manager::LayoutManager;
+use rust_nn::gui::left_panel::LeftPanel;
 use rust_nn::gui::renderer::{Renderer, TrainingStats, TrainingUpdate, VisualizationData};
 use rust_nn::gui::{layout, theme};
 use rust_nn::mnist::parser::MnistDataset;
@@ -356,16 +359,42 @@ async fn main() {
 
     println!("\n[Main Thread] Rendering started. Training running in background...\n");
 
-    let mut control_panel = ControlPanel::new(args.screen_width, args.screen_height, args.learning_rate);
+    let mut layout_manager = LayoutManager::new(args.screen_width, args.screen_height);
+    let mut left_panel = LeftPanel::new(args.learning_rate);
+    let bottom_panel = BottomPanel::new();
+    let mut is_paused = false;
     let mut last_update: Option<TrainingUpdate> = None;
     let mut training_complete = false;
+    let mut last_frame_time = get_time();
 
     loop {
-        let layout = layout::calculate_layout(screen_width(), screen_height(), &args.topology);
+        let current_time = get_time();
+        let delta_time = (current_time - last_frame_time) as f32;
+        last_frame_time = current_time;
 
-        // Handle control panel updates
-        let control_messages = control_panel.update();
+        // Update layout manager with delta time for animations
+        layout_manager.update(delta_time);
+
+        // Clear background
+        clear_background(theme::BACKGROUND_COLOR);
+
+        // Calculate network layout based on available space
+        let network_area = layout_manager.dimensions.network_area();
+        let network_layout = layout::calculate_layout(network_area, &args.topology);
+
+        // Handle toggle button
+        if left_panel.toggle_button.update() {
+            layout_manager.toggle_left_panel();
+        }
+
+        // Handle control messages from left panel
+        let control_messages = left_panel.update(&layout_manager, is_paused);
         for msg in control_messages {
+            if matches!(msg, ControlMessage::Pause) {
+                is_paused = true;
+            } else if matches!(msg, ControlMessage::Resume) {
+                is_paused = false;
+            }
             let _ = control_tx.send(msg);
         }
 
@@ -376,14 +405,31 @@ async fn main() {
             }
         }
 
+        // Draw network visualization
         if let Some(update) = &last_update {
-            renderer.draw_frame(&layout, Some(&update.stats), Some(&update.visualization));
+            renderer.draw_frame(
+                &network_layout,
+                Some(&update.stats),
+                Some(&update.visualization),
+                layout_manager.dimensions.top_bar_height,
+            );
         } else {
-            renderer.draw_frame(&layout, None, None);
+            renderer.draw_frame(
+                &network_layout,
+                None,
+                None,
+                layout_manager.dimensions.top_bar_height,
+            );
         }
 
-        // Draw control panel on top
-        control_panel.draw(&renderer.font());
+        // Draw UI panels
+        left_panel.draw(&layout_manager, renderer.font());
+        
+        if let (Some(stats), Some(viz)) = (&last_update.as_ref().map(|u| &u.stats), &last_update.as_ref().map(|u| &u.visualization)) {
+            bottom_panel.draw(&layout_manager, renderer.font(), Some(stats), Some(viz));
+        } else {
+            bottom_panel.draw(&layout_manager, renderer.font(), None, None);
+        }
 
         next_frame().await;
 
