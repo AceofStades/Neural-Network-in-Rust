@@ -51,9 +51,9 @@ impl LayoutDimensions {
     pub fn left_panel_bounds(&self) -> PanelBounds {
         PanelBounds {
             x: 0.0,
-            y: self.top_bar_height,
+            y: 0.0,
             width: self.left_panel_width,
-            height: self.screen_height - self.top_bar_height - self.bottom_panel_height,
+            height: self.screen_height - self.bottom_panel_height,
         }
     }
 
