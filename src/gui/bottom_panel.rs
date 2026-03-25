@@ -63,7 +63,11 @@ impl BottomPanel {
         let epoch_text = format!("Epoch: {}", stats.epoch);
         let loss_text = format!("Loss: {:.4}", stats.loss);
         let acc_text = format!("Accuracy: {:.2}%", stats.accuracy * 100.0);
-        let batch_text = format!("Batches: {}", stats.batch_count);
+        let val_acc_text = if let Some(val_acc) = stats.val_accuracy {
+            format!("Val Acc: {:.2}%", val_acc * 100.0)
+        } else {
+            "Val Acc: --".to_string()
+        };
 
         // Calculate spacing
         let total_width = width - PANEL_PADDING * 2.0;
@@ -106,13 +110,13 @@ impl BottomPanel {
         );
 
         draw_text_ex(
-            &batch_text,
+            &val_acc_text,
             stats_x + spacing * 3.0,
             stats_y + 15.0,
             TextParams {
                 font: Some(font),
                 font_size: 18,
-                color: WHITE,
+                color: Color::new(0.4, 0.8, 1.0, 1.0), // Light blue for validation
                 ..Default::default()
             },
         );

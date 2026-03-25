@@ -90,7 +90,7 @@ fn training_thread(
     epochs: usize,
     model_path: Option<String>,
 ) {
-    let mut network = Network::new(Cost::CCE);
+    let mut network = Network::new(Cost::MSE);
     let mut learning_rate = initial_learning_rate;
     let mut paused = false;
     let mut speed_delay_ms = 0.0;
@@ -137,6 +137,9 @@ fn training_thread(
 
     let mut training_state = TrainingState::new();
     let total_train_samples = dataset.train_images.len();
+    
+    // Start with None, will evaluate after first batch
+    let mut current_val_metrics = None;
 
     for epoch in 0..epochs {
         training_state.reset_epoch();
@@ -155,7 +158,7 @@ fn training_thread(
                     }
                     ControlMessage::Reset => {
                         println!("[Training Thread] Resetting network...");
-                        network = Network::new(Cost::CCE);
+                        network = Network::new(Cost::MSE);
                         for i in 0..(topology.len() - 1) {
                             let input_size = topology[i];
                             let output_size = topology[i + 1];
@@ -168,6 +171,9 @@ fn training_thread(
                         }
                         training_state.reset_epoch();
                         println!("[Training Thread] Network reset complete");
+                        
+                        // Reset validation metrics (will be computed at end of next epoch)
+                        current_val_metrics = None;
                     }
                     ControlMessage::SetLearningRate(new_lr) => {
                         learning_rate = new_lr;
@@ -288,6 +294,8 @@ fn training_thread(
                     loss: training_state.get_loss(),
                     accuracy: training_state.get_accuracy(),
                     batch_count: training_state.batch_index,
+                    val_loss: current_val_metrics.map(|(l, _)| l),
+                    val_accuracy: current_val_metrics.map(|(_, a)| a),
                 },
                 visualization: VisualizationData {
                     activations: network.activations.clone(),
@@ -312,13 +320,20 @@ fn training_thread(
 
             let _ = update_tx.send(update);
         }
+        
+        // Evaluate on validation set at end of epoch
+        println!("[Training Thread] Evaluating on validation set...");
+        let (val_loss, val_acc) = network.evaluate(&dataset.test_images, &dataset.test_labels);
+        current_val_metrics = Some((val_loss, val_acc));
 
         println!(
-            "Epoch {}/{} | Loss: {:.4} | Accuracy: {:.2}%",
+            "Epoch {}/{} | Loss: {:.4} | Accuracy: {:.2}% | Val Loss: {:.4} | Val Acc: {:.2}%",
             epoch + 1,
             epochs,
             training_state.get_loss(),
-            training_state.get_accuracy() * 100.0
+            training_state.get_accuracy() * 100.0,
+            val_loss,
+            val_acc * 100.0
         );
     }
 
@@ -415,11 +430,12 @@ async fn main() {
             let _ = control_tx.send(msg);
         }
 
-        if let Ok(update) = update_rx.try_recv() {
-            last_update = Some(update.clone());
+        // Drain the channel to get the latest update
+        while let Ok(update) = update_rx.try_recv() {
             if update.stats.epoch >= args.epochs {
                 training_complete = true;
             }
+            last_update = Some(update);
         }
 
         // Draw network visualization

@@ -73,4 +73,46 @@ impl Network {
             layer.apply_gradients(learning_rate);
         }
     }
+
+    pub fn evaluate(
+        &mut self,
+        inputs: &[Array1<f32>],
+        targets: &[Array1<f32>],
+    ) -> (f32, f32) {
+        let mut total_loss = 0.0;
+        let mut total_correct = 0;
+        let mut samples = 0;
+
+        for (input, target) in inputs.iter().zip(targets.iter()) {
+            let prediction = self.predict(input.clone());
+            
+            // Calculate loss (using existing cost function)
+            let loss = self.cost.calc(target, &prediction);
+            total_loss += loss;
+
+            let pred_idx = prediction
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            
+            let target_idx = target
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+
+            if pred_idx == target_idx {
+                total_correct += 1;
+            }
+            samples += 1;
+        }
+
+        let avg_loss = if samples > 0 { total_loss / samples as f32 } else { 0.0 };
+        let accuracy = if samples > 0 { total_correct as f32 / samples as f32 } else { 0.0 };
+
+        (avg_loss, accuracy)
+    }
 }

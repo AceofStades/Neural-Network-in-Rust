@@ -8,6 +8,8 @@ pub struct TrainingStats {
     pub epoch: usize,
     pub loss: f32,
     pub accuracy: f32,
+    pub val_loss: Option<f32>,
+    pub val_accuracy: Option<f32>,
     pub batch_count: usize,
 }
 
