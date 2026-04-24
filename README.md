@@ -1,140 +1,82 @@
-# RustNN
+# Neural Network in Rust
 
-![Rust](https://img.shields.io/badge/rust-v1.75%2B-orange)
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Status](https://img.shields.io/badge/status-active-success)
+A lightweight, from-scratch Neural Network library implemented in Rust, featuring a built-in real-time interactive GUI visualizer built with [Macroquad](https://macroquad.rs/). 
 
-RustNN is a lightweight, educational neural network library built entirely from scratch in Rust. It features a custom implementation of forward and backward propagation, varied activation functions, and a real-time visualization engine powered by Macroquad.
+Watch the network learn the MNIST dataset in real-time with color-coded neuron activations, and control the training dynamically through the UI.
 
-No PyTorch. No TensorFlow. Just pure math and Rust.
+![Rust-NN Visualizer](assets/demo-screenshot.png)
 
 ## Features
 
-* **From-Scratch Architecture:** Complete implementation of fully connected layers, weights, and biases using `ndarray`.
-* **Modular Activations:** Supports ReLU, Sigmoid, Tanh, and Linear activations.
-* **Robust Cost Functions:** Includes MSE, MAE, Huber Loss, and Cross-Entropy.
-* **Real-Time Visualization:** Interactive GUI to visualize network topology.
-* **CLI Configurable:** Adjust hyperparameters and UI settings instantly via command-line arguments.
+- **From-Scratch Implementation:** Neural network core built entirely in Rust without relying on heavy external deep learning frameworks. Features dense layers, Tanh/Sigmoid activations, MSE/CCE cost functions, and backpropagation.
+- **Real-Time Visualization:** See the learning process unfold. Neurons are color-coded based on their activation levels.
+- **Interactive GUI:** 
+  - Pause and resume training at any time.
+  - Dynamically adjust the learning rate via a slider.
+  - Control training speed to closely inspect the learning process.
+  - Reset the network to start over.
+- **Multithreaded Architecture:** Training runs smoothly in a background thread, communicating with the main thread via MPSC channels, ensuring the UI remains responsive and fluid.
+- **CLI Configurability:** Highly customizable through command-line arguments (topology, batch size, epochs, etc.).
+- **Model Serialization:** Save and load trained models using JSON (`serde`).
 
 ## Getting Started
 
 ### Prerequisites
 
-You need the Rust toolchain installed. If you do not have it, run:
+- [Rust](https://rustup.rs/) (edition 2024)
+- MNIST Dataset (The `mnist-dataset` folder containing the `idx-ubyte` files should be present in the root directory).
+
+### Installation & Building
+
+Clone the repository and build using Cargo:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf [https://sh.rustup.rs](https://sh.rustup.rs) | sh
+cargo build --release
 ```
 
-### Installation
+### Usage
 
-Clone the repository:
+You can run the application directly with default settings:
 
 ```bash
-git clone [https://github.com/yourusername/rust-nn.git](https://github.com/yourusername/rust-nn.git)
-cd rust-nn
-
+cargo run --release
 ```
 
-## Usage (Visualizer)
+#### Command Line Arguments
 
-You can run the neural network visualizer directly from the terminal. Use `clap` arguments to configure the simulation.
-
-**Basic Run (Default Settings):**
-
-```bash
-cargo run
-```
-
-**Custom Configuration:**
-
-Run with 10 hidden neurons, verbose logging, and a custom window size:
-
-```bash
-cargo run -- -n 10 -v --screen-width 1200 --screen-height 800
-```
-
-### CLI Arguments
-
-| Flag | Long Flag | Description | Default |
-| --- | --- | --- | --- |
-| `-n` | `--neurons` | Number of neurons in the hidden layer | `4` |
-| `-l` | `--learning-rate` | Learning rate for training | `0.01` |
-| `-w` | `--screen-width` | Window width in pixels | `1440.0` |
-| `-h` | `--screen-height` | Window height in pixels | `900.0` |
-| `-v` | `--verbose` | Enable verbose logging | `false` |
-|  | `--path` | Path to load/save model | *Required* |
-
-## Library Usage (The Math)
-
-You can also use the internal `nn` module to build networks programmatically for solving logic gates (XOR) or regression problems.
-
-```rust
-use rust_nn::nn::{Network, Layer, Cost, ActivationType};
-use ndarray::arr1;
-
-fn main() {
-    // 1. Create a Network
-    let mut net = Network::new(Cost::MSE);
-
-    // 2. Add Layers
-    net.add(Layer::new(2, 4, ActivationType::Tanh));    // Input -> Hidden
-    net.add(Layer::new(4, 1, ActivationType::Sigmoid)); // Hidden -> Output
-
-    // 3. Train (XOR Example)
-    let inputs = vec![arr1(&[0.0, 0.0]), arr1(&[1.0, 0.0])];
-    let targets = vec![arr1(&[0.0]), arr1(&[1.0])];
-
-    net.train(&inputs, &targets, 10_000, 0.2);
-}
-
-```
-
-## Project Structure
+Rust-NN is highly configurable via CLI arguments:
 
 ```text
-rust-nn/
-├── src/
-│   ├── main.rs           # Entry point (CLI & Visualizer Loop)
-│   ├── lib.rs            # Library exports
-│   │
-│   ├── nn/               # Core Logic
-│   │   ├── network.rs    # Network struct & training loop
-│   │   ├── layer.rs      # Layer struct & backprop logic
-│   │   ├── cost.rs       # Loss functions (MSE, CCE, etc.)
-│   │   └── activation.rs # ReLU, Sigmoid, Tanh, Linear
-│   │
-│   └── gui/              # Visualization
-│       ├── mod.rs
-│       └── layout.rs     # Macroquad drawing logic
-│
-└── tests/                # Integration tests (XOR, Linear Regression)
-
+Options:
+  -t, --topology <TOPOLOGY>...  Network layer sizes [default: 784 320 100 10]
+  -w, --screen-width <WIDTH>    Initial screen width [default: 1440.0]
+  -e, --screen-height <HEIGHT>  Initial screen height [default: 900.0]
+  -l, --learning-rate <LR>      Initial learning rate [default: 0.1]
+  -b, --batch-size <SIZE>       Training batch size [default: 32]
+  -E, --epochs <EPOCHS>         Number of training epochs [default: 5]
+  -p, --path <PATH>             Path to save/load the model JSON file
+  -h, --help                    Print help
+  -V, --version                 Print version
 ```
 
-## Running Tests
-
-Ensure the math is solid by running the integration tests. This verifies that the network can actually learn XOR and Linear Regression tasks.
-
+**Example:**
+Train a smaller network with a larger batch size and save it to `model.json`:
 ```bash
-cargo test
-
+cargo run --release -- -t 784 128 10 -b 64 -l 0.05 -p model.json
 ```
 
-## Tech Stack
+## GUI Controls
 
-* **Language:** Rust
-* **Math:** `ndarray` (Linear Algebra), `rand` (Initialization)
-* **GUI:** `macroquad` (Immediate Mode Graphics)
-* **CLI:** `clap` (Argument Parsing)
-
-## Roadmap
-
-* [x] Add multithreading to separate Training from Rendering.
-* [x] Implement dataset loading (MNIST).
-* [ ] Add interactive UI controls (Buttons/Sliders).
-* [x] Save/Load trained models to disk.
+- **Left Panel:** 
+  - **Play/Pause:** Toggle training execution.
+  - **Reset:** Re-initialize the network weights and restart training from epoch 1.
+  - **Learning Rate Slider:** Adjust the learning rate on the fly.
+  - **Speed Slider:** Add artificial delay (in ms) between batches to slow down the visualization.
+- **Bottom Panel:**
+  - Displays real-time training statistics including Epoch progress, Batch count, Loss, and Accuracy.
+- **Legend:**
+  - Color map explaining neuron activation intensity (Low, Medium, High, Very High).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
